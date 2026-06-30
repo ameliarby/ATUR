@@ -100,22 +100,34 @@
   /* ===== Mobile web-app mode: fill the whole viewport, drop the desktop mockup chrome =====
      On phones the app becomes a real full-bleed web app instead of a 390x844 device mockup. */
   @media (max-width:600px){
-    body{padding:0;background:var(--page);}
+    /* Kunci lebar viewport: tak ada geser/scroll horizontal di HP.
+       Elemen glow (.screen::before/::after, .subscreen::before) meluber ke
+       kiri/kanan; di sini kita pastikan tak ada yang bisa digeser sumbu-X. */
+    html,body{padding:0;margin:0;background:var(--page);overflow-x:hidden;width:100%;max-width:100%;}
     .page-title,.page-sub,.device-tag,.notch{display:none;}
     .stage{display:block;gap:0;}
     .device-wrap{gap:0;}
     .phone{
       width:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;
       border-radius:0;background:var(--page);padding:0;box-shadow:none;
+      overflow:hidden;max-width:100%;
     }
     .screen{
-      border-radius:0;width:100%;height:100vh;height:100dvh;
+      border-radius:0;width:100%;height:100vh;height:100dvh;overflow:hidden;
     }
     /* respect real notch / home-bar safe areas */
     .statusbar{padding-top:env(safe-area-inset-top);height:auto;min-height:48px;}
     .scroll{padding-bottom:calc(96px + env(safe-area-inset-bottom));}
-    /* square the inner overlays so no rounded gap shows against the square screen */
-    .subscreen,.scrim{border-radius:0;}
+    /* Cegah konten anak lebih lebar dari layar memicu geser horizontal. */
+    .scroll,.sub-scroll{overflow-x:hidden;}
+    .subscreen{overflow:hidden;}
+    /* Square the inner overlays so no rounded gap shows against the square
+       screen. SEMUA scrim/overlay disertakan agar tak ada lengkungan hitam
+       yang tersisa, dan dibuat menutup PENUH layar. */
+    .subscreen,.scrim,.sub-scrim,.dlg-scrim,.sheet-scrim{border-radius:0;}
+    .scrim,.sub-scrim,.dlg-scrim,.sheet-scrim{
+      position:fixed;inset:0;width:100%;height:100%;
+    }
   }
 
   /* header */
@@ -1231,7 +1243,8 @@
     .form-in, .imp-inp, .imp-sel, .imp-cat, .imp-sub,
     .imp-date, .imp-time, .imp-amt-in, .imp-desc, .imp-note,
     .imp-period-fld select, .ap-row input, .cf-dr-fld input,
-    .wa-phone input, .ob-input{
+    .wa-phone input, .ob-input,
+    .budg-cap-edit, .ap-amt, .ng-it-amt, .ng-it-mon, #b-cap, #waPhone{
       font-size:16px !important;
       /* cegah iOS membesarkan teks otomatis di orientasi tertentu */
       -webkit-text-size-adjust:100%;
