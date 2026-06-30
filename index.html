@@ -2136,8 +2136,8 @@ function openBerduaLock(){
     <div class="bd-t">Atur Berdua terkunci</div>
     <div class="bd-d">Hubungkan dengan pasanganmu untuk mencatat pengeluaran bersama secara transparan.</div>
     <input id="bd-partner" class="fld-inp" type="text" placeholder="Nama pasangan" maxlength="24" autocomplete="off">
-    <button id="bd-connect" class="ob-btn" style="margin-top:12px">${I.users} Hubungkan Pasangan</button>
-    <button id="bd-share" class="bd-share">${I.share2} Bagikan tautan profil pasangan</button>
+    <button id="bd-connect" class="ob-btn" style="margin-top:12px">${I.users} Konfirmasi Nama Pasangan</button>
+    <button id="bd-share" class="bd-share">${I.share2} Ajak gabung pasanganmu</button>
     <button id="bd-skip" class="bd-skip">Lewati untuk sekarang</button>
   </div>`;
   // Lampirkan ke dalam layar HP (.screen), bukan ke body — agar scrim + blur
@@ -3309,7 +3309,6 @@ function scrProfile(){
   const nm = myName();
   const initial = (nm[0]||'A').toUpperCase();
   const emailGuess = APP.name ? (APP.name.trim().toLowerCase().replace(/\s+/g,'.')+'@email.com · Premium') : 'Belum diatur · Gratis';
-  const aiState = (APP.aiKey||'').trim() ? 'Aktif (kunci sendiri)' : 'Aktif (server)';
   return subBar('Profil & Pengaturan','Akun '+nm)+
   `<div class="sub-scroll">
     <div class="prof-top">
@@ -3325,10 +3324,6 @@ function scrProfile(){
     <div class="grp-label">Uang</div>
     <div class="set-group">
       <div class="set-row" data-go="budget"><div class="set-ic">${I.wealth}</div><div class="set-lbl">Anggaran & Alert</div><span class="set-val">6 kategori</span>${I.chev}</div>
-    </div>
-    <div class="grp-label">Lanjutan</div>
-    <div class="set-group">
-      <div class="set-row" data-go="aikey"><div class="set-ic">${I.lock}</div><div class="set-lbl">Kunci API AI</div><span class="set-val">${aiState}</span>${I.chev}</div>
     </div>
     <div class="set-group">
       <div class="set-row" data-go="reset" style="color:#C2410C"><div class="set-ic" style="color:#C2410C">${I.logout}</div><div class="set-lbl">Reset Data & Keluar</div></div>
@@ -5133,7 +5128,6 @@ function renderTop(animateIn){
     else if(g==='sources') navTo(scrSources());
     else if(g==='invite') navTo(scrInvite());
     else if(g==='editname') navTo(scrEditName());
-    else if(g==='aikey') navTo(scrAiKey());
     else if(g==='reset') doResetApp();
   }));
   // ----- Edit Profil: simpan nama & nama pasangan -----
@@ -5473,25 +5467,115 @@ function mountPhone(){
   bindCards();
   bindFpFab(); // FAB progress analisa persisten
   setGreeting();
+  refreshGreetingLines(); // segarkan variasi sapaan via server AI (opsional, non-blocking)
   refreshTag();
   startLiveClock();
 }
 
-function setGreeting(){
+// ----- Greeting dinamis: sub-kalimat berganti tiap 10 detik, tone casual -----
+// Konsep "teman keuangan santai": tiap slot waktu (pagi/siang/sore/malam)
+// punya 5 variasi bernuansa beda. Bila server AI ATUR tersedia, daftar bisa
+// disegarkan otomatis (lihat refreshGreetingLines); kalau tidak, pakai statis.
+const GREET_SUB = {
+  pagi: [
+    'Yuk, intip ke mana uangmu pergi hari ini. ☕',
+    'Pagi cerah, dompet juga ikut rapi yuk. 🌱',
+    'Mulai hari dengan rencana belanja yang santai. 📝',
+    'Kopi dulu, baru cek saldo. Pelan-pelan aja. 😌',
+    'Satu langkah kecil hari ini buat tabungan nanti. ✨'
+  ],
+  siang: [
+    'Sudah cek pengeluaran makan siang? 😋',
+    'Jeda sejenak, lirik dulu jajan hari ini. 🍱',
+    'Siang-siang gini paling enak nabung diam-diam. 🤫',
+    'Lapar boleh, tapi dompet tetap dijaga ya. 🙂',
+    'Masih on-track sama budget? Mantap kalau iya. 👍'
+  ],
+  sore: [
+    'Saatnya rapikan dompet sebelum malam. 🌇',
+    'Sore santai, beresin catatan pengeluaran yuk. 🧾',
+    'Hampir tutup hari, sisa budget masih aman? 🍵',
+    'Ngopi sore sambil cek arus uangmu. ☕',
+    'Sedikit rapi sekarang, besok lebih lega. 🌿'
+  ],
+  malam: [
+    'Tutup hari dengan keuangan yang rapi. ✨',
+    'Malam tenang, rekap dulu pengeluaran tadi. 🌙',
+    'Istirahat dulu, besok lanjut atur lagi. 😴',
+    'Hari ini hemat? Kasih tepuk tangan buat diri sendiri. 👏',
+    'Tarik napas, uangmu sudah dicatat dengan baik. 💆'
+  ]
+};
+let _greetSlot='pagi', _greetIdx=0, _greetTimer=null;
+
+function currentGreetSlot(){
   const h=new Date().getHours();
-  let word='Pagi', emo='☀️', sub='Yuk, intip ke mana uangmu pergi hari ini.';
-  if(h>=11&&h<15){word='Siang';emo='🌤️';sub='Sudah cek pengeluaran makan siang? 😋';}
-  else if(h>=15&&h<18){word='Sore';emo='🌇';sub='Saatnya rapikan dompet sebelum malam.';}
-  else if(h>=18||h<4){word='Malam';emo='🌙';sub='Tutup hari dengan keuangan yang rapi. ✨';}
+  if(h>=11&&h<15) return 'siang';
+  if(h>=15&&h<18) return 'sore';
+  if(h>=18||h<4) return 'malam';
+  return 'pagi';
+}
+
+function applySubGreet(){
+  const s=document.getElementById('subGreet');
+  if(!s) return;
+  if(currentMode==='b'){
+    s.textContent='Atur keuangan bersama, transparan tanpa drama. 💞';
+    return;
+  }
+  const list=GREET_SUB[_greetSlot]||GREET_SUB.pagi;
+  const txt=list[_greetIdx % list.length]||'';
+  // animasi halus saat berganti
+  s.style.transition='opacity .35s ease';
+  s.style.opacity='0';
+  setTimeout(()=>{ s.textContent=txt; s.style.opacity='1'; },180);
+}
+
+function startGreetLoop(){
+  if(_greetTimer) return;
+  _greetTimer=setInterval(()=>{
+    const slot=currentGreetSlot();
+    if(slot!==_greetSlot){ _greetSlot=slot; _greetIdx=0; }
+    else { _greetIdx++; }
+    // hanya animasikan jika tab terlihat & masih di mode sendiri
+    if(document.visibilityState!=='hidden') applySubGreet();
+  },10000);
+}
+
+function setGreeting(){
+  _greetSlot=currentGreetSlot();
+  let word='Pagi', emo='☀️';
+  if(_greetSlot==='siang'){word='Siang';emo='🌤️';}
+  else if(_greetSlot==='sore'){word='Sore';emo='🌇';}
+  else if(_greetSlot==='malam'){word='Malam';emo='🌙';}
   const g=document.getElementById('greetLine');
   const s=document.getElementById('subGreet');
   if(currentMode==='b'){
     if(g) g.innerHTML=`${word}, <span>${myName()} & ${partnerDisplay()}</span> ${emo}`;
-    if(s) s.textContent='Atur keuangan bersama, transparan tanpa drama. 💞';
+    if(s){ s.style.opacity='1'; s.textContent='Atur keuangan bersama, transparan tanpa drama. 💞'; }
   } else {
     if(g) g.innerHTML=`${word}, <span>${myName()}</span> ${emo}`;
-    if(s) s.textContent=sub;
+    if(s){ s.style.opacity='1'; applySubGreet(); }
   }
+  startGreetLoop();
+}
+
+// Opsional: minta server AI ATUR menyegarkan variasi sub-kalimat (tone casual).
+// Aman & non-blocking — gagal/diam = tetap pakai daftar statis di atas.
+async function refreshGreetingLines(){
+  try{
+    const r=await fetch('/api/greeting-lines',{method:'GET',headers:{'Accept':'application/json'}});
+    if(!r.ok) return;
+    const data=await r.json();
+    let changed=false;
+    ['pagi','siang','sore','malam'].forEach(k=>{
+      if(Array.isArray(data[k]) && data[k].length){
+        GREET_SUB[k]=data[k].slice(0,5).map(x=>String(x).slice(0,90));
+        changed=true;
+      }
+    });
+    if(changed) applySubGreet();
+  }catch(e){/* diam: pakai statis */}
 }
 
 function bindCards(){
