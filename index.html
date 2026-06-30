@@ -124,11 +124,20 @@
     .subscreen{overflow:hidden;}
     /* Square the inner overlays so no rounded gap shows against the square
        screen. SEMUA scrim/overlay disertakan agar tak ada lengkungan hitam
-       yang tersisa, dan dibuat menutup PENUH layar. */
-    .subscreen,.scrim,.sub-scrim,.dlg-scrim,.sheet-scrim{border-radius:0;}
-    .scrim,.sub-scrim,.dlg-scrim,.sheet-scrim{
-      position:fixed;inset:0;width:100%;height:100%;
+       yang tersisa, dan dibuat menutup PENUH layar.
+       CATATAN: .subscreen punya transform -> ia jadi containing-block untuk
+       position:fixed di dalamnya, jadi 'fixed' TIDAK menempel ke viewport.
+       Pakai position:absolute + inset:0 supaya scrim selalu mengisi PENUH
+       parent-nya (.screen / .subscreen yang sudah full-bleed & kotak di HP),
+       di SEMUA ukuran layar HP. SEMUA jenis scrim/overlay disertakan. */
+    .subscreen,.scrim,.sub-scrim,.dlg-scrim,.sheet-scrim,
+    .apc-pop-mask,.bd-scrim,.fp-fab{border-radius:0;}
+    .scrim,.sub-scrim,.dlg-scrim,.sheet-scrim,
+    .apc-pop-mask,.bd-scrim{
+      position:absolute;inset:0;width:100%;height:100%;max-width:100%;
     }
+    /* dialog & bottom-sheet scrim tetas boleh punya radius pada KARTU di dalamnya,
+       hanya lapisan gelap (mask) yang dikotakkan & dipenuhkan di atas. */
   }
 
   /* header */
@@ -424,6 +433,34 @@
     transition:opacity .28s ease,transform .32s cubic-bezier(.34,1.3,.5,1);
   }
   .sub-fab-menu.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
+
+  /* ===== FAB floating "Progress Analisa" =====
+     Muncul saat analisa e-statement masih berjalan TAPI user sudah keluar dari
+     layar progress (mis. menekan back / pindah ke beranda). Selalu bisa diketuk
+     untuk kembali membuka layar progress sampai analisa beres. Diletakkan di
+     dalam .screen (BUKAN .subscreen) supaya tetap tampil di layar mana pun. */
+  .fp-fab{
+    position:absolute;left:18px;bottom:96px;z-index:62;display:none;align-items:center;gap:10px;
+    padding:9px 15px 9px 11px;border-radius:999px;cursor:pointer;color:#fff;
+    box-shadow:0 10px 24px rgba(20,20,30,.30);
+    transition:transform .18s ease,box-shadow .25s ease,opacity .25s ease;
+    max-width:calc(100% - 36px);
+  }
+  .fp-fab.show{display:flex;animation:fpPop .32s cubic-bezier(.34,1.4,.5,1);}
+  .fp-fab:active{transform:scale(.96);}
+  .mode-s .fp-fab{background:linear-gradient(145deg,#3B82F6,#2563EB);}
+  .mode-b .fp-fab{background:linear-gradient(145deg,#E4621F,#C2410C);}
+  .fp-fab .fp-spin{
+    width:18px;height:18px;border-radius:50%;flex:none;
+    border:2.4px solid rgba(255,255,255,.35);border-top-color:#fff;
+    animation:fpSpin .8s linear infinite;
+  }
+  .fp-fab .fp-check{width:18px;height:18px;flex:none;display:flex;align-items:center;justify-content:center;}
+  .fp-fab .fp-tx{display:flex;flex-direction:column;line-height:1.15;min-width:0;}
+  .fp-fab .fp-t{font-size:12.5px;font-weight:700;white-space:nowrap;}
+  .fp-fab .fp-s{font-size:10.5px;font-weight:500;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  @keyframes fpSpin{to{transform:rotate(360deg);}}
+  @keyframes fpPop{from{opacity:0;transform:translateY(8px) scale(.9);}to{opacity:1;transform:translateY(0) scale(1);}}
 
   /* ===== tappable home cards ===== */
   .tappable{cursor:pointer;transition:transform .18s ease,box-shadow .25s ease;}
@@ -1955,6 +1992,10 @@ function screenHTML(mode){
     </div>
     <div class="home-indicator"></div>
     <div class="subscreen" id="subScreen"></div>
+    <div class="fp-fab" id="fpFab" role="button" aria-label="Buka progress analisa e-statement">
+      <span class="fp-ic"><span class="fp-spin"></span></span>
+      <span class="fp-tx"><span class="fp-t">Menganalisa…</span><span class="fp-s">Ketuk untuk lihat progress</span></span>
+    </div>
     <div class="dlg-scrim" id="dlgScrim">
       <div class="dlg-card" id="dlgCard">
         <div class="dlg-title" id="dlgTitle"></div>
@@ -3517,6 +3558,63 @@ let aiParseMeta={ source:'', lineCount:0, mode:'', bank:'', defaultPic:'reza' };
 let aiExpandedRows=new Set(); // baris tinjau yang sedang dibuka (editable); default ringkas/tertutup
 let aiDateFilter=null; // null = semua tanggal; selain itu, string tanggal (mis. '12 Jun') untuk memfilter baris tinjau
 let aiDateFrom=null, aiDateTo=null; // saringan PERIODE tanggal (indeks pada daftar tanggal terurut); null = batas terbuka
+
+/* ===== Progress analisa e-statement yang persisten =====
+   Saat user mengunggah PDF lalu menekan back / pindah halaman, proses analisa
+   TETAP berjalan di latar. Status disimpan di sini supaya:
+   (1) hasil tidak hilang walau user keluar dari layar progress, dan
+   (2) FAB floating "Menganalisa…" bisa ditampilkan di layar mana pun untuk
+       membuka kembali progress/hasil kapan saja sampai beres.            */
+let aiParseJob = {
+  active:false,   // sedang menganalisa?
+  done:false,     // sudah selesai & hasil siap ditinjau?
+  startedMode:''  // 's' | 'b' — mode saat analisa dimulai (jaga konsistensi store)
+};
+// Buka (atau buka kembali) layar import sesuai status job.
+function openParseScreen(){
+  if(aiParseJob.done){
+    openScreen(scrImport('review'));
+  } else if(aiParseJob.active){
+    openScreen(scrImport('parsing'));
+  }
+}
+// Sinkronkan tampilan FAB floating progress dengan status job.
+function updateFpFab(){
+  const fab=document.getElementById('fpFab');
+  if(!fab) return;
+  // Tampilkan FAB hanya bila ada job (berjalan / selesai) DAN layar yang
+  // sedang aktif BUKAN layar import itu sendiri (parsing/review).
+  const onImportScreen = (()=>{
+    if(screenStack.length===0) return false;
+    const top=screenStack[screenStack.length-1]||'';
+    return top.indexOf('id="importScroll"')>=0; // penanda khas layar import
+  })();
+  const show = (aiParseJob.active || aiParseJob.done) && !onImportScreen;
+  fab.classList.toggle('show', show);
+  if(show){
+    const ic=fab.querySelector('.fp-ic');
+    const t=fab.querySelector('.fp-t');
+    const s=fab.querySelector('.fp-s');
+    if(aiParseJob.done){
+      if(ic) ic.innerHTML='<span class="fp-check">'+I.check+'</span>';
+      if(t) t.textContent='Analisa selesai';
+      if(s) s.textContent='Ketuk untuk tinjau '+aiParsePreview.length+' transaksi';
+    } else {
+      if(ic) ic.innerHTML='<span class="fp-spin"></span>';
+      if(t) t.textContent='Menganalisa…';
+      if(s) s.textContent='Ketuk untuk lihat progress';
+    }
+  }
+}
+// Pasang handler klik FAB sekali per render .screen.
+function bindFpFab(){
+  const fab=document.getElementById('fpFab');
+  if(!fab || fab._bound) { updateFpFab(); return; }
+  fab._bound=true;
+  fab.addEventListener('click',()=>{ openParseScreen(); });
+  updateFpFab();
+}
+
 // Urutkan daftar tanggal "DD Mon" memakai urutan bulan demo (months). Kembalikan array unik terurut.
 function aiSortedDates(){
   const monIdx=m=>{ const i=months.findIndex(x=>x.toLowerCase()===String(m||'').toLowerCase()); return i<0?99:i; };
@@ -4445,6 +4543,7 @@ function renderTop(animateIn){
   sub.innerHTML=html;
   if(animateIn){ requestAnimationFrame(()=>sub.classList.add('show')); }
   else { sub.classList.add('show'); }
+  updateFpFab(); // sinkronkan FAB progress: sembunyi saat DI layar import, muncul saat keluar
   const back=sub.querySelector('#backBtn');
   if(back) back.addEventListener('click',goBack);
   // sub-screen FAB (Catatan): input manual / unggah e-statement, sama seperti di Beranda
@@ -4531,35 +4630,58 @@ function renderTop(animateIn){
     const drop=sub.querySelector('#pdfDrop');
     if(drop) drop.addEventListener('click',(e)=>{ if(e.target.closest('#pickPdf'))return; trigger(); });
     const startParse=async(file)=>{
+      // Tandai job aktif & tampilkan layar progress. Job ini PERSISTEN: walau
+      // user menekan back/pindah halaman, proses tetap jalan dan hasil tak hilang.
+      aiParseJob.active=true; aiParseJob.done=false; aiParseJob.startedMode=currentMode;
+      aiParsePreview=[];
       screenStack[screenStack.length-1]=scrImport('parsing'); renderTop(false);
+      updateFpFab();
       aiExpandedRows=new Set(); // mulai dengan tampilan ringkas (semua tertutup)
       aiDateFilter=null; aiDateFrom=null; aiDateTo=null; // reset saringan periode tanggal tiap parsing baru
       impSelMode=false; impSelected.clear(); // reset mode pilih tiap parsing baru
-      const text=await extractPdfText(file);
-      aiParseMeta.lineCount=(text.match(/\d{4,}/g)||[]).length;
-      aiParseMeta.bank=detectBankName(file,text); // label sumber untuk Catatan Arus Kas
-      // 0) SAMPLE Bank Jago dikenali -> pakai ekstraksi presisi (terurut tanggal, kategori per-kantong)
-      if(isJagoSampleFile(file,text)){
-        const js=jagoSampleParse();
-        if(js.length){ aiParsePreview=js; aiParseMeta.mode='ai'; screenStack[screenStack.length-1]=scrImport('review'); renderTop(false); return; }
-      }
-      try{
-        // 1) AI: proxy backend diutamakan (key di server), lalu BYO-key bila ada.
-        const r=await parseEstatementAI(text);
-        if(r && r.txns && r.txns.length){
-          aiParsePreview=r.txns; aiParseMeta.mode='ai'; aiParseMeta.via=r.via;
-        } else { throw new Error('ai-empty'); }
-      }catch(e){
-        // fallback berlapis: parser terstruktur Jago -> pengurai lokal umum -> data contoh
-        const jago=parseJagoText(text);
-        if(jago.length){ aiParsePreview=jago; aiParseMeta.mode='local'; }
-        else {
-          const local=localParse(text);
-          if(local.length){ aiParsePreview=local; aiParseMeta.mode='local'; }
-          else { aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; }
+      // Tampilkan hasil: bila user MASIH di layar import -> langsung buka review;
+      // bila user sudah keluar -> jangan ganggu layarnya, cukup tandai job selesai
+      // & perbarui FAB floating supaya bisa dibuka kapan saja.
+      const finishParse=()=>{
+        aiParseJob.active=false; aiParseJob.done=true;
+        const top=screenStack[screenStack.length-1]||'';
+        const stillOnImport = top.indexOf('id="importScroll"')>=0;
+        if(stillOnImport){
+          screenStack[screenStack.length-1]=scrImport('review'); renderTop(false);
         }
+        updateFpFab();
+      };
+      try{
+        const text=await extractPdfText(file);
+        aiParseMeta.lineCount=(text.match(/\d{4,}/g)||[]).length;
+        aiParseMeta.bank=detectBankName(file,text); // label sumber untuk Catatan Arus Kas
+        // 0) SAMPLE Bank Jago dikenali -> pakai ekstraksi presisi (terurut tanggal, kategori per-kantong)
+        if(isJagoSampleFile(file,text)){
+          const js=jagoSampleParse();
+          if(js.length){ aiParsePreview=js; aiParseMeta.mode='ai'; finishParse(); return; }
+        }
+        try{
+          // 1) AI: proxy backend diutamakan (key di server), lalu BYO-key bila ada.
+          const r=await parseEstatementAI(text);
+          if(r && r.txns && r.txns.length){
+            aiParsePreview=r.txns; aiParseMeta.mode='ai'; aiParseMeta.via=r.via;
+          } else { throw new Error('ai-empty'); }
+        }catch(e){
+          // fallback berlapis: parser terstruktur Jago -> pengurai lokal umum -> data contoh
+          const jago=parseJagoText(text);
+          if(jago.length){ aiParsePreview=jago; aiParseMeta.mode='local'; }
+          else {
+            const local=localParse(text);
+            if(local.length){ aiParsePreview=local; aiParseMeta.mode='local'; }
+            else { aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; }
+          }
+        }
+        finishParse();
+      }catch(err){
+        // Gagal baca PDF total -> pakai data contoh agar tetap ada hasil.
+        if(!aiParsePreview.length){ aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; }
+        finishParse();
       }
-      screenStack[screenStack.length-1]=scrImport('review'); renderTop(false);
     };
     if(fileInput) fileInput.addEventListener('change',()=>{ if(fileInput.files&&fileInput.files.length) startParse(fileInput.files[0]); });
   }
@@ -4786,7 +4908,10 @@ function renderTop(animateIn){
       // Tambahkan hasil parse (sudah diedit user) ke store AKTIF (sesuai mode) — akumulatif, tidak menghapus data lama.
       activeTxns().push(...aiParsePreview.filter(t=>(t.amt||0)>0).map((t,i)=>({id:(currentMode==='b'?'himp':'imp')+Date.now()+'_'+i,seq:nextSeq(),origin:'estmt',dir:t.dir,amt:(t.amt||0).toLocaleString('id-ID'),cur:(t.cur||'IDR'),rate:curRate(t.cur||'IDR'),bank:(aiParseMeta.bank||'e-Statement'),ket:t.sender,note:t.note||'',date:normImportDate(t.date),time:t.time||'—',cat:t.cat,sub:t.sub,pic:(PIC_VALID.includes(t.pic)?t.pic:aiParseMeta.defaultPic),pocket:t.pocket||'',source:t.source||'',detail:t.detail||'',balance:(t.balance==null?null:t.balance),timeFull:t.timeFull||t.time||'',dateFull:t.dateFull||t.date||''})));
       saveActiveTxns();
+      // Job selesai & tersimpan -> bersihkan status supaya FAB progress hilang.
+      aiParseJob.active=false; aiParseJob.done=false; aiParseJob.startedMode='';
       openScreen(emptyState(I.check,'Tersimpan!',`${aiParsePreview.filter(t=>(t.amt||0)>0).length} transaksi berhasil diimpor ke catatan arus kas.`,'Selesai','done'));
+      updateFpFab();
     });
   }
   // ----- Atur Annual Projection: tabel pemasukan/pengeluaran tetap + scheduled cost -----
@@ -5317,6 +5442,7 @@ function closeScreen(){
   screenStack=[];
   setTimeout(()=>{ if(screenStack.length===0) sub.innerHTML=''; },360);
   refreshDash();
+  updateFpFab(); // kembali ke beranda: tampilkan FAB progress bila job masih ada
 }
 // Re-render isi dashboard agar kartu (mis. perbandingan Proyeksi Tabungan Setahun vs biaya non-reguler,
 // Sumber Kekayaan) sinkron dengan perubahan dari sub-layar, lalu pasang ulang handler.
@@ -5345,6 +5471,7 @@ function mountPhone(){
   bindFab();
   bindNav();
   bindCards();
+  bindFpFab(); // FAB progress analisa persisten
   setGreeting();
   refreshTag();
   startLiveClock();
