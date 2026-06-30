@@ -1,0 +1,13 @@
+{
+  "name": "atur-app",
+  "version": "1.3.0",
+  "private": true,
+  "description": "ATUR — aplikasi pencatatan & pelacakan keuangan (Sendiri & Berdua). Static single-file HTML.",
+  "scripts": {
+    "start": "serve public -l ${PORT:-3000}",
+    "dev": "serve public -l 3000"
+  },
+  "devDependencies": {
+    "serve": "^14.2.3"
+  }
+}

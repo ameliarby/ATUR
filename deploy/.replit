@@ -1,0 +1,15 @@
+run = "npx --yes serve public -l $PORT"
+entrypoint = "public/index.html"
+modules = ["nodejs-20"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "npx --yes serve public -l $PORT"]
+deploymentTarget = "static"
+publicDir = "public"
+
+[[ports]]
+localPort = 3000
+externalPort = 80

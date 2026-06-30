@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build / deploy artifacts
+.vercel/
+dist/
+build/
+
+# Logs
+*.log
+.replit_history
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Local zip bundle (regenerated from deploy/)
+atur-deploy.zip
