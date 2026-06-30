@@ -3823,17 +3823,30 @@ const AI_PROXY_URL = (window.ATUR_AI_PROXY_URL || '/api/parse-estatement');
 // prompt yang sama di sisi server agar key tetap rahasia).
 function aiSystemPrompt(cats){
   return 'Kamu pengurai e-statement bank Indonesia (mis. Bank Jago). E-statement bisa berbentuk per-KANTONG: tiap halaman punya header nama kantong (Kantong Utama, Shopping, Food, Holiday Fund, Transport, Utilities, Subscription, Groceries, Self Care, Annual Fund, dll.) lalu daftar transaksi dengan kolom: Tanggal & Waktu, Sumber/Tujuan, Rincian Transaksi, Catatan, Jumlah(+/-), Saldo. '
-    +'Aturan: (1) Ekstrak SEMUA transaksi dari SEMUA kantong, jangan lewatkan satu pun. (2) KATEGORI transaksi DITURUNKAN dari NAMA KANTONG tempat transaksi itu berada (mis. kantong "Food"->Food, "Holiday Fund"->Vacation, "Transport"->Transport, "Annual Fund"->Investment, "Self Care"->Selfcare). Bila tak ada kantong, tebak dari deskripsi. (3) "dir":"in" bila Jumlah bertanda + (uang masuk), "out" bila bertanda - (uang keluar). (4) "sender" = Sumber/Tujuan + Rincian. "note" = isi kolom Catatan (boleh kosong). (5) URUTKAN hasil secara KRONOLOGIS berdasarkan tanggal naik. '
+    +'Aturan: (1) Ekstrak SEMUA transaksi dari SEMUA kantong, jangan lewatkan satu pun. (2) KATEGORI: ANALISIS SETIAP transaksi dari RINCIAN/merchant-nya, JANGAN samakan semua transaksi satu kantong ke satu kategori. Nama kantong hanya PETUNJUK; bila deskripsi jelas menunjuk kategori lain, ikuti deskripsi (mis. "OPENAI"->Subscription, "Bluebird"/"grab"->Transport, "apotek"->Medical). Baru pakai kategori kantong bila deskripsi tak informatif. (2b) "sub" = sub-kategori spesifik dari deskripsi (mis. Food->"Kopi", Transport->"Taksi online"), kosongkan bila tak bisa disimpulkan. (3) "dir":"in" bila Jumlah bertanda + (uang masuk), "out" bila bertanda - (uang keluar). (4) "sender" = Sumber/Tujuan + Rincian. "note" = isi kolom Catatan (boleh kosong). (5) URUTKAN hasil secara KRONOLOGIS berdasarkan tanggal naik. (6) "conf" = keyakinanmu pada kategori, 0..1, ISI REALISTIS per transaksi (jelas ~0.95+, menebak <=0.6), jangan samakan semua. '
     +'Balas HANYA JSON object {"transactions":[ ... ]}. Tiap item: {"sender":string,"note":string,"amt":number(rupiah, tanpa titik, selalu positif),"date":"DD Mon"(Jan Feb Mar Apr Mei Jun Jul Agu Sep Okt Nov Des),"time":"HH:MM","dir":"in"|"out","pocket":string(nama kantong asal),"cat":salah satu dari ['+cats.join(', ')+'],"sub":string,"conf":0..1}.';
 }
 
 // Bentuk akhir setiap item dari AI menjadi struktur transaksi internal.
 function shapeAiTxns(arr){
   return arr.map(t=>{
-    // Kategori diturunkan dari nama kantong bila ada; selain itu pakai cat dari AI.
+    // KATEGORI: utamakan hasil ANALISIS AI per-transaksi (t.cat/t.sub) — itulah
+    // inti gunanya AI. Nama kantong dipakai HANYA sebagai cadangan: bila AI tidak
+    // mengisi kategori, atau AI tidak yakin (conf rendah) padahal kantong jelas.
     let cat, sub;
-    if(t.pocket){ const pc=pocketToCat(t.pocket); cat=pc[0]; sub=t.sub?normalizeSub(cat,t.sub):pc[1]; }
-    else { cat=normalizeCat(t.cat); sub=normalizeSub(cat,t.sub); }
+    const aiCat = t.cat ? normalizeCat(t.cat) : '';
+    const aiConf = (typeof t.conf==='number') ? t.conf : null;
+    const pc = t.pocket ? pocketToCat(t.pocket) : null;
+    if(aiCat){
+      // AI memberi kategori → pakai itu (analisis per-transaksi).
+      cat = aiCat;
+      sub = normalizeSub(cat, t.sub);
+    } else if(pc){
+      // AI tidak isi kategori → turunkan dari nama kantong.
+      cat = pc[0]; sub = t.sub?normalizeSub(cat,t.sub):pc[1];
+    } else {
+      cat = normalizeCat(t.cat); sub = normalizeSub(cat, t.sub);
+    }
     // Sumber/Tujuan & Rincian terpisah (Tahap 1 backend). Fallback dari `sender` lama.
     const source=(t.source!=null&&String(t.source).trim())?String(t.source).trim():(t.sender?String(t.sender).split(' — ')[0].trim():'');
     const detail=(t.detail!=null&&String(t.detail).trim())?String(t.detail).trim():(t.sender?String(t.sender):'');
@@ -3843,11 +3856,14 @@ function shapeAiTxns(arr){
     const tdet=detectTransfer(((source||'')+' '+(detail||'')+' '+(t.sender||'')));
     if(tdet && dir!=='transfer'){ dir='transfer'; cat=tdet[0]; sub=tdet[1]; }
     else if(dir==='transfer' && !taxFor('transfer')[cat]){ const td=tdet||['Other Transfer','Others']; cat=td[0]; sub=td[1]; }
+    // Confidence: hormati nilai dari AI. Bila AI tak mengisi, pakai 0.7 (sedang)
+    // supaya pengguna sadar perlu dicek — BUKAN 0.9 yang menyesatkan.
+    let conf = (aiConf!=null) ? Math.max(0, Math.min(1, aiConf)) : 0.7;
     return {sender:String(t.sender||(source||detail)||'Transaksi'), source, detail, note:String(t.note||''),
       amt:Math.abs(Math.round(+String(t.amt).replace(/[^\d]/g,'')||0)),
       balance:balRaw, date:String(t.date||'—'), dateFull:String(t.dateFull||t.date||''),
       time:String(t.time||''), timeFull:String(t.timeFull||t.time||''),
-      dir, pocket:String(t.pocket||''), cat, sub, conf:typeof t.conf==='number'?t.conf:0.9};
+      dir, pocket:String(t.pocket||''), cat, sub, conf};
   }).filter(t=>t.amt>0).sort((a,b)=>dateSortKey(a.date)-dateSortKey(b.date));
 }
 
