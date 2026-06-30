@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.3.0">
+<meta name="app-version" content="1.4.0">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1463,7 +1463,7 @@ function duoLinkCardHTML(){
     </div>`;
   }
   return `<div class="card duo-link tappable" data-screen="connect">
-      <div class="duo-link-ava"><span class="avatar av-r">R</span><span class="avatar av-d ov">D</span></div>
+      <div class="duo-link-ava"><span class="avatar av-r">${picInitial('reza')}</span><span class="avatar av-d ov">${picInitial('dini')}</span></div>
       <div style="flex:1">
         <div class="duo-link-t">Terhubung dengan ${partnerName}</div>
         <div class="duo-link-s">${I.wa} Tersambung via WhatsApp · ketuk untuk kelola</div>
@@ -1744,17 +1744,17 @@ function scrEditName(){
 function scrAiKey(){
   const accent=currentMode==='s'?'#2563EB':'#C2410C';
   const has=(APP.aiKey||'').trim();
-  return subBar('Kunci API AI','Untuk analisa e-statement otomatis')+
+  return subBar('Kunci API AI','Opsional — analisa e-statement sudah otomatis')+
   `<div class="sub-scroll">
     <div class="sec-card">
-      <label class="fld-lbl">Kunci API (OpenAI-compatible)</label>
-      <input id="ak-key" class="fld-inp" type="password" value="${has?has.replace(/"/g,'&quot;'):''}" placeholder="sk-..." autocomplete="off">
+      <label class="fld-lbl">Kunci API (OpenAI-compatible) — opsional</label>
+      <input id="ak-key" class="fld-inp" type="password" value="${has?has.replace(/"/g,'&quot;'):''}" placeholder="sk-... (kosongkan jika pakai server)" autocomplete="off">
       <div style="display:flex;gap:8px;margin-top:14px">
         <button id="ak-save" class="form-save" style="background:${accent};flex:1">Simpan Kunci</button>
         <button id="ak-clear" class="form-save" style="background:#6B7280;flex:0 0 auto;padding:0 16px">Hapus</button>
       </div>
     </div>
-    <div class="form-note">${I.lock} Kunci disimpan hanya di perangkat ini (localStorage) dan tidak ikut ter-publish saat aplikasi di-deploy. Saat menganalisa e-statement, isi PDF dan kunci dikirim langsung dari browser ke penyedia AI (OpenAI). Tanpa kunci, ATUR memakai pengurai lokal.</div>
+    <div class="form-note">${I.lock} Secara default, analisa e-statement diproses lewat server ATUR (kunci AI disimpan aman di server, tidak pernah dikirim ke browser). Kolom ini hanya perlu diisi bila kamu menjalankan ATUR sendiri TANPA server proxy — saat itu isi PDF & kunci dikirim langsung dari browser ke OpenAI. Bila keduanya tak tersedia, ATUR memakai pengurai lokal di perangkat.</div>
   </div>`;
 }
 
@@ -1908,7 +1908,15 @@ function setPic(key,who){
   }catch(e){}
 }
 function cyclePic(cur){ const i=PIC_VALID.indexOf(cur); return PIC_VALID[(i+1)%PIC_VALID.length]; }
-const picShort={reza:'R', dini:'D'};
+// Inisial penanggung jawab: huruf pertama nama user/pasangan (mengikuti input,
+// bukan hardcoded). Fallback ke 'K'/'P' bila nama kosong, lalu 'R'/'D' sbg cadangan.
+function picInitial(who){
+  const nm = (who==='dini' ? partnerDisplay() : myName()).trim();
+  const ch = (nm.replace(/[^\p{L}\p{N}]/gu,'')[0] || '').toUpperCase();
+  if(ch) return ch;
+  return who==='dini' ? 'P' : 'K';
+}
+function picShort(){ return {reza: picInitial('reza'), dini: picInitial('dini')}; }
 function picName(){ return {reza: myName(), dini: partnerDisplay()}; }
 const picColor={reza:'#EA6A2E', dini:'#F4A93C'};
 
@@ -2174,7 +2182,7 @@ function scrCatatan(){
       ${g.items.map(t=>{ const who=txnPic(t); const showPic=currentMode==='b';
         return `<div class="cf-txn tappable" data-edit-txn="${t.id}">
         <div class="cf-dir ${t.dir==='in'?'pos':'neg'}">${t.dir==='in'?I.dlft:I.uprt}</div>
-        <div class="cf-main"><div class="cf-t">${showPic?`<span class="cf-pic ${who}" title="Penanggung jawab: ${picName()[who]}">${picShort[who]}</span>`:''}${t.title}</div><div class="cf-m"><span class="cf-bank" style="color:${t.bankColor}">${t.bank}</span> · ${t.cat} › ${t.subc}${t.time&&t.time!=='—'?' · '+t.time:''}</div></div>
+        <div class="cf-main"><div class="cf-t">${showPic?`<span class="cf-pic ${who}" title="Penanggung jawab: ${picName()[who]}">${picShort()[who]}</span>`:''}${t.title}</div><div class="cf-m"><span class="cf-bank" style="color:${t.bankColor}">${t.bank}</span> · ${t.cat} › ${t.subc}${t.time&&t.time!=='—'?' · '+t.time:''}</div></div>
         <div class="cf-right">
           <div class="cf-amt ${t.dir==='in'?'pos':'neg'}">${t.dir==='in'?'+':'−'}${t.amtRaw}</div>
           ${t.src==='estmt'?`<span class="cf-srctag">e-stmt</span>`:''}
@@ -2317,7 +2325,7 @@ function scrKategoriBerdua(){
     const list=householdBudgets.filter(b=>b.pic===who);
     const spent=list.reduce((a,b)=>a+sp(b),0);
     const avaCls= who==='reza'?'av-r':'av-d';
-    const avaTxt= who==='reza'?'R':'D';
+    const avaTxt= picInitial(who);
     const ttl= 'Dikelola '+picName()[who];
     const sub= `${list.length} kategori · ${jt(spent)} total`;
     return `<div class="hh-group">
@@ -2675,7 +2683,7 @@ function scrProfile(){
   const nm = myName();
   const initial = (nm[0]||'A').toUpperCase();
   const emailGuess = APP.name ? (APP.name.trim().toLowerCase().replace(/\s+/g,'.')+'@email.com · Premium') : 'Belum diatur · Gratis';
-  const aiState = (APP.aiKey||'').trim() ? 'Aktif' : 'Belum diatur';
+  const aiState = (APP.aiKey||'').trim() ? 'Aktif (kunci sendiri)' : 'Aktif (server)';
   return subBar('Profil & Pengaturan','Akun '+nm)+
   `<div class="sub-scroll">
     <div class="prof-top">
@@ -2686,7 +2694,6 @@ function scrProfile(){
     <div class="grp-label">Akun</div>
     <div class="set-group">
       <div class="set-row" data-go="editname"><div class="set-ic">${I.user}</div><div class="set-lbl">Edit Profil</div>${I.chev}</div>
-      <div class="set-row" data-go="sources"><div class="set-ic">${I.bank}</div><div class="set-lbl">Sumber Terhubung</div><span class="set-val">5</span>${I.chev}</div>
       <div class="set-row" data-go="invite"><div class="set-ic">${I.share2}</div><div class="set-lbl">Koneksi Berdua</div><span class="set-val">${berduaConnected?('Terhubung · '+partnerDisplay()):'Belum terhubung'}</span>${I.chev}</div>
     </div>
     <div class="grp-label">Uang</div>
@@ -2964,12 +2971,73 @@ function dateSortKey(date){
 
 // ---- Ekstraksi teks PDF sederhana (tanpa library): ambil string di antara tanda kurung
 //      pada operator Tj/TJ. Cukup untuk e-statement berbasis teks. ----
-async function extractPdfText(file){
+// ---- Pemuat skrip eksternal sekali-pakai (lazy). Hanya diunduh dari CDN
+//      SAAT dibutuhkan (parsing PDF), sehingga alur normal aplikasi tetap
+//      mandiri/offline. Bila CDN gagal, kita jatuh balik ke parser regex.
+const _cdnCache={};
+function loadScriptOnce(src){
+  if(_cdnCache[src]) return _cdnCache[src];
+  _cdnCache[src]=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src=src; s.async=true;
+    s.onload=()=>res(true);
+    s.onerror=()=>{ delete _cdnCache[src]; rej(new Error('cdn-failed:'+src)); };
+    document.head.appendChild(s);
+  });
+  return _cdnCache[src];
+}
+
+const PDFJS_SRC='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const TESS_SRC='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+
+// Ekstraksi teks via pdf.js (akurat, menangani PDF terkompresi). Mengembalikan
+// {text, pages, hasTextLayer}. Lempar error bila pdf.js tak bisa dimuat.
+async function extractViaPdfjs(file){
+  await loadScriptOnce(PDFJS_SRC);
+  const pdfjs=window.pdfjsLib;
+  if(!pdfjs) throw new Error('pdfjs-missing');
+  try{ pdfjs.GlobalWorkerOptions.workerSrc=PDFJS_WORKER; }catch(e){}
+  const buf=await file.arrayBuffer();
+  const doc=await pdfjs.getDocument({data:buf}).promise;
+  let all=[]; let charCount=0;
+  const n=doc.numPages;
+  for(let p=1;p<=n;p++){
+    const page=await doc.getPage(p);
+    const tc=await page.getTextContent();
+    const line=tc.items.map(it=>it.str).join(' ');
+    charCount+=line.length;
+    all.push(line);
+  }
+  return { text:all.join('\n'), pages:n, charCount, doc };
+}
+
+// OCR halaman PDF (untuk e-statement hasil scan/foto yang tak punya text layer).
+// Merender tiap halaman ke canvas lalu menjalankan Tesseract (ind+eng).
+async function ocrPdfDoc(doc, maxPages){
+  await loadScriptOnce(TESS_SRC);
+  if(!window.Tesseract) throw new Error('tesseract-missing');
+  const lim=Math.min(doc.numPages, maxPages||6); // batasi agar tak terlalu lama
+  let out=[];
+  for(let p=1;p<=lim;p++){
+    const page=await doc.getPage(p);
+    const vp=page.getViewport({scale:2});
+    const canvas=document.createElement('canvas');
+    canvas.width=vp.width; canvas.height=vp.height;
+    const ctx=canvas.getContext('2d');
+    await page.render({canvasContext:ctx,viewport:vp}).promise;
+    const dataUrl=canvas.toDataURL('image/png');
+    const r=await window.Tesseract.recognize(dataUrl,'ind+eng');
+    out.push((r&&r.data&&r.data.text)||'');
+  }
+  return out.join('\n');
+}
+
+// Parser regex lama (cadangan terakhir): tarik teks di dalam ( ... ) dari byte PDF.
+function extractPdfTextRegex(buf){
   try{
-    const buf=await file.arrayBuffer();
     let bin=''; const bytes=new Uint8Array(buf);
     for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
-    // ambil teks di dalam ( ... ) — operator penulisan teks PDF
     const out=[]; const re=/\(((?:\\.|[^()\\])*)\)/g; let m;
     while((m=re.exec(bin))!==null){
       let s=m[1].replace(/\\([()\\nrt])/g,(x,c)=>({'n':'\n','r':'\r','t':'\t'}[c]||c));
@@ -2977,6 +3045,34 @@ async function extractPdfText(file){
     }
     return out.join(' ');
   }catch(e){ return ''; }
+}
+
+// Orkestrator ekstraksi teks PDF (Opsi C):
+//   1) pdf.js (text layer) — paling akurat untuk PDF digital.
+//   2) Bila teks terlalu sedikit (kemungkinan PDF hasil scan) → OCR Tesseract.
+//   3) Bila pdf.js gagal dimuat → parser regex byte lama.
+async function extractPdfText(file){
+  let buf=null;
+  try{ buf=await file.arrayBuffer(); }catch(e){ buf=null; }
+  try{
+    const r=await extractViaPdfjs(file);
+    const txt=(r.text||'').trim();
+    // Heuristik: <40 karakter "berarti" per halaman → kemungkinan PDF scan.
+    const perPage=txt.replace(/\s+/g,'').length/Math.max(1,r.pages);
+    if(perPage>=40 || !window.Tesseract && txt.length>120){
+      return txt;
+    }
+    // Coba OCR sebagai pelengkap bila teks tipis.
+    try{
+      const ocr=await ocrPdfDoc(r.doc);
+      const merged=[txt, (ocr||'').trim()].filter(Boolean).join('\n');
+      if(merged.replace(/\s+/g,'').length>txt.replace(/\s+/g,'').length) return merged;
+    }catch(e){ /* OCR gagal → pakai teks pdf.js apa adanya */ }
+    return txt;
+  }catch(e){
+    // pdf.js tak tersedia (CDN diblok/offline) → cadangan regex byte.
+    return buf ? extractPdfTextRegex(buf) : '';
+  }
 }
 
 // ---- Heuristik lokal: cari baris bernominal Rupiah + tebak kategori dari kata kunci.
@@ -3098,27 +3194,20 @@ function parseJagoText(text){
   }
   return res.sort((a,b)=>dateSortKey(a.date)-dateSortKey(b.date));
 }
-async function parseEstatementWithAI(text, apiKey){
-  if(!apiKey || !text) throw new Error('no-key-or-text');
-  const cats=validCats();
-  const sys='Kamu pengurai e-statement bank Indonesia (mis. Bank Jago). E-statement berbentuk per-KANTONG: tiap halaman punya header nama kantong (Kantong Utama, Shopping, Food, Holiday Fund, Transport, Utilities, Subscription, Groceries, Self Care, Annual Fund, dll.) lalu daftar transaksi dengan kolom: Tanggal & Waktu, Sumber/Tujuan, Rincian Transaksi, Catatan, Jumlah(+/-), Saldo. '
-    +'Aturan: (1) Ekstrak SEMUA transaksi dari SEMUA kantong, jangan lewatkan satu pun. (2) KATEGORI transaksi DITURUNKAN dari NAMA KANTONG tempat transaksi itu berada (mis. kantong "Food"->Food, "Holiday Fund"->Vacation, "Transport"->Transport, "Annual Fund"->Investment, "Self Care"->Selfcare). (3) "dir":"in" bila Jumlah bertanda + (uang masuk), "out" bila bertanda - (uang keluar). (4) "sender" = Sumber/Tujuan + Rincian. "note" = isi kolom Catatan (boleh kosong). (5) URUTKAN hasil secara KRONOLOGIS berdasarkan tanggal naik. '
-    +'Balas HANYA JSON array, tiap item: {"sender":string,"note":string,"amt":number(rupiah, tanpa titik, selalu positif),"date":"DD Mon"(Jan Feb Mar Apr Mei Jun Jul Agu Sep Okt Nov Des),"time":"HH:MM","dir":"in"|"out","pocket":string(nama kantong asal),"cat":salah satu dari ['+cats.join(', ')+'],"sub":string,"conf":0..1}.';
-  const resp=await fetch('https://api.openai.com/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-    body:JSON.stringify({
-      model:'gpt-4o-mini', temperature:0,
-      messages:[{role:'system',content:sys},{role:'user',content:text.slice(0,12000)}],
-      response_format:{type:'json_object'}
-    })
-  });
-  if(!resp.ok) throw new Error('api-'+resp.status);
-  const data=await resp.json();
-  let content=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'[]';
-  let arr;
-  try{ const p=JSON.parse(content); arr=Array.isArray(p)?p:(p.transactions||p.data||p.items||[]); }
-  catch(e){ const m=content.match(/\[[\s\S]*\]/); arr=m?JSON.parse(m[0]):[]; }
+// Endpoint backend proxy (serverless). Relatif terhadap origin, jadi otomatis
+// benar saat di-deploy ke Vercel ('/api/parse-estatement'). Bisa di-override.
+const AI_PROXY_URL = (window.ATUR_AI_PROXY_URL || '/api/parse-estatement');
+
+// Prompt sistem (dipakai HANYA bila jalur BYO-key langsung; jalur proxy memakai
+// prompt yang sama di sisi server agar key tetap rahasia).
+function aiSystemPrompt(cats){
+  return 'Kamu pengurai e-statement bank Indonesia (mis. Bank Jago). E-statement bisa berbentuk per-KANTONG: tiap halaman punya header nama kantong (Kantong Utama, Shopping, Food, Holiday Fund, Transport, Utilities, Subscription, Groceries, Self Care, Annual Fund, dll.) lalu daftar transaksi dengan kolom: Tanggal & Waktu, Sumber/Tujuan, Rincian Transaksi, Catatan, Jumlah(+/-), Saldo. '
+    +'Aturan: (1) Ekstrak SEMUA transaksi dari SEMUA kantong, jangan lewatkan satu pun. (2) KATEGORI transaksi DITURUNKAN dari NAMA KANTONG tempat transaksi itu berada (mis. kantong "Food"->Food, "Holiday Fund"->Vacation, "Transport"->Transport, "Annual Fund"->Investment, "Self Care"->Selfcare). Bila tak ada kantong, tebak dari deskripsi. (3) "dir":"in" bila Jumlah bertanda + (uang masuk), "out" bila bertanda - (uang keluar). (4) "sender" = Sumber/Tujuan + Rincian. "note" = isi kolom Catatan (boleh kosong). (5) URUTKAN hasil secara KRONOLOGIS berdasarkan tanggal naik. '
+    +'Balas HANYA JSON object {"transactions":[ ... ]}. Tiap item: {"sender":string,"note":string,"amt":number(rupiah, tanpa titik, selalu positif),"date":"DD Mon"(Jan Feb Mar Apr Mei Jun Jul Agu Sep Okt Nov Des),"time":"HH:MM","dir":"in"|"out","pocket":string(nama kantong asal),"cat":salah satu dari ['+cats.join(', ')+'],"sub":string,"conf":0..1}.';
+}
+
+// Bentuk akhir setiap item dari AI menjadi struktur transaksi internal.
+function shapeAiTxns(arr){
   return arr.map(t=>{
     // Kategori diturunkan dari nama kantong bila ada; selain itu pakai cat dari AI.
     let cat, sub;
@@ -3128,7 +3217,62 @@ async function parseEstatementWithAI(text, apiKey){
   }).filter(t=>t.amt>0).sort((a,b)=>dateSortKey(a.date)-dateSortKey(b.date));
 }
 
-// Demo dataset bila tak ada teks terbaca sama sekali (PDF kosong / gambar).
+// Jalur 1 — Proxy backend (DIUTAMAKAN). Key OpenAI ada di server, tidak ke browser.
+// Lempar error khusus 'ai-not-configured' bila server belum di-set, agar bisa
+// turun ke jalur BYO-key / lokal.
+async function parseViaProxy(text){
+  const resp=await fetch(AI_PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ text:text.slice(0,16000), cats:validCats() })
+  });
+  if(resp.status===501){ throw new Error('ai-not-configured'); }
+  if(!resp.ok){ throw new Error('proxy-'+resp.status); }
+  const data=await resp.json();
+  const arr=Array.isArray(data.transactions)?data.transactions:[];
+  return shapeAiTxns(arr);
+}
+
+// Jalur 2 — BYO-key langsung dari browser ke OpenAI (fallback bila proxy tak ada
+// DAN user mengisi kuncinya sendiri di Pengaturan). Tetap didukung untuk dev/lokal.
+async function parseViaUserKey(text, apiKey){
+  if(!apiKey || !text) throw new Error('no-key-or-text');
+  const resp=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({
+      model:'gpt-4o-mini', temperature:0,
+      response_format:{type:'json_object'},
+      messages:[{role:'system',content:aiSystemPrompt(validCats())},{role:'user',content:text.slice(0,12000)}]
+    })
+  });
+  if(!resp.ok) throw new Error('api-'+resp.status);
+  const data=await resp.json();
+  let content=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'{"transactions":[]}';
+  let arr;
+  try{ const p=JSON.parse(content); arr=Array.isArray(p)?p:(p.transactions||p.data||p.items||[]); }
+  catch(e){ const m=content.match(/\[[\s\S]*\]/); arr=m?JSON.parse(m[0]):[]; }
+  return shapeAiTxns(arr);
+}
+
+// Orkestrator: coba proxy dulu; bila server belum dikonfigurasi, baru pakai
+// kunci milik user (bila ada). Mengembalikan {txns, via}.
+async function parseEstatementAI(text){
+  if(!text) throw new Error('no-text');
+  try{
+    const txns=await parseViaProxy(text);
+    return { txns, via:'proxy' };
+  }catch(e){
+    const key=(APP.aiKey||'').trim();
+    if((e&&e.message==='ai-not-configured') && key){
+      const txns=await parseViaUserKey(text,key);
+      return { txns, via:'userkey' };
+    }
+    throw e; // proxy error lain / tak ada key -> biar caller fallback ke lokal
+  }
+}
+
+
 const aiParseDemo=[
   {sender:'Indomaret Sudirman',     note:'POS purchase',        amt:48500,   date:'12 Jun', time:'19:24', dir:'out', cat:'Groceries', sub:'Food',    conf:0.97, save:false},
   {sender:'Gojek',                  note:'Trip ride',           amt:23000,   date:'12 Jun', time:'08:10', dir:'out', cat:'Transport', sub:'Motor',   conf:0.95, save:false},
@@ -3236,7 +3380,7 @@ function scrImport(stage){
       <div class="ai-feat-row">${I.spark} Kategori & sub-kategori ditentukan AI — bisa kamu koreksi</div>
       <div class="ai-feat-row">${I.spark} Tabungan terdeteksi → bisa ke kantong Tujuan</div>
     </div>
-    <div class="form-note">${hasKey?(I.check+' Kunci API AI aktif — kategorisasi pakai AI.'):(I.lock+' Belum ada Kunci API AI. Tambahkan di Profil → Kunci API AI agar memakai AI; tanpa itu memakai pengurai lokal.')}</div>
+    <div class="form-note">${hasKey?(I.check+' Kunci API AI sendiri aktif — analisa pakai kunci itu.'):(I.spark+' Analisa AI diproses otomatis lewat server ATUR. Bila server belum aktif & tanpa kunci sendiri, ATUR memakai pengurai lokal.')}</div>
   </div>`;
 }
 
@@ -3631,12 +3775,12 @@ function renderTop(animateIn){
         const js=jagoSampleParse();
         if(js.length){ aiParsePreview=js; aiParseMeta.mode='ai'; screenStack[screenStack.length-1]=scrImport('review'); renderTop(false); return; }
       }
-      const key=(APP.aiKey||'').trim();
       try{
-        if(key && text){
-          aiParsePreview=await parseEstatementWithAI(text,key);
-          aiParseMeta.mode='ai';
-        } else { throw new Error('fallback'); }
+        // 1) AI: proxy backend diutamakan (key di server), lalu BYO-key bila ada.
+        const r=await parseEstatementAI(text);
+        if(r && r.txns && r.txns.length){
+          aiParsePreview=r.txns; aiParseMeta.mode='ai'; aiParseMeta.via=r.via;
+        } else { throw new Error('ai-empty'); }
       }catch(e){
         // fallback berlapis: parser terstruktur Jago -> pengurai lokal umum -> data contoh
         const jago=parseJagoText(text);

@@ -2,9 +2,55 @@
 
 > Prototipe dashboard fintech premium Indonesia (single-file HTML).
 > Berkas utama: `atur.html`
-> **Versi saat ini: v1.3.0** (Turn 45 — 30 Juni 2026)
+> **Versi saat ini: v1.4.0** (Turn 54 — 30 Juni 2026)
 
 Penomoran mengikuti [Semantic Versioning](https://semver.org/lang/id/): `MAYOR.MINOR.PATCH`.
+
+---
+
+## v1.4.0 — Turn 54 — 30 Juni 2026
+
+### Mesin baca e-Statement: proxy AI backend (Opsi B) + ekstraksi PDF & OCR lebih baik (Opsi C) 🤖
+
+**Konteks:** sebelumnya analisa AI hanya jalan bila pengguna menempel kunci OpenAI miliknya sendiri di Pengaturan (kunci itu dikirim langsung dari browser). Itu tak praktis untuk pengguna non-teknis dan membocorkan kunci ke sisi klien. Selain itu, ekstraksi teks PDF memakai regex byte mentah yang gagal pada PDF terkompresi dan total gagal pada PDF hasil scan.
+
+**1. Proxy AI backend (Opsi B) — kunci aman di server.**
+- Berkas baru `deploy/api/parse-estatement.js` — Vercel Serverless Function. Menerima TEKS hasil ekstraksi dari browser, memanggil OpenAI memakai `OPENAI_API_KEY` yang disimpan di server, lalu mengembalikan `{transactions:[...]}`. **Kunci tidak pernah dikirim ke browser.**
+  - Env var: `OPENAI_API_KEY` (wajib), `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENAI_BASE_URL`, `ATUR_ALLOW_ORIGIN`.
+  - Rate-limit per-IP sederhana (12 req/60 dtk), header CORS, penanganan `OPTIONS`. Balas `501 ai-not-configured` bila kunci belum diset → sinyal frontend turun ke jalur lokal.
+- Frontend di-refaktor: `parseEstatementWithAI()` lama dipecah menjadi `aiSystemPrompt(cats)`, `shapeAiTxns(arr)`, `parseViaProxy(text)`, `parseViaUserKey(text,key)`, dan orkestrator `parseEstatementAI(text)` yang mengembalikan `{txns, via}`.
+- Alur berlapis di `startParse`: **proxy** → **kunci sendiri (opsional)** → parser Jago/lokal → data contoh.
+
+**2. Ekstraksi PDF + OCR (Opsi C).**
+- `extractPdfText()` kini memakai **pdf.js** (lapisan teks akurat untuk PDF digital terkompresi). Bila teks per-halaman terlalu tipis (indikasi PDF hasil scan), otomatis menjalankan **Tesseract.js** (OCR `ind+eng`) merender halaman ke canvas.
+- Kedua pustaka **lazy-loaded dari CDN hanya saat memproses PDF** — alur normal aplikasi tetap mandiri. Bila CDN diblokir, jatuh balik ke parser regex byte lama (`extractPdfTextRegex`).
+
+**3. Penyesuaian UI/teks.**
+- *Profil → Kunci API AI* kini ditandai **opsional**; salinan menjelaskan proses default lewat server & kapan perlu kunci sendiri.
+- Status AI di Profil: "Aktif (server)" bila tanpa kunci, "Aktif (kunci sendiri)" bila ada.
+- Catatan di layar unggah e-statement diperbarui agar tak lagi menyiratkan kunci wajib.
+
+**Keamanan:** function hanya memanggil layanan AI EKSTERNAL (OpenAI / endpoint yang pemilik set sendiri) — tidak mengarah ke endpoint inference internal. Tidak ada proses jaringan yang dijalankan di lingkungan build.
+
+**Validasi:** sintaks JS OK (`node --check`); README & `package.json` (v1.4.0) diperbarui mendokumentasikan env var; `atur.html` ⇄ `deploy/public/index.html` disinkronkan.
+
+---
+
+## v1.3.1 — Turn 53 — 30 Juni 2026
+
+### Perbaikan inisial pengelola (Berdua) + hapus "Sumber Terhubung" dari Profil 🔧
+
+**1. Inisial penanggung jawab kini mengikuti nama user & pasangan (tidak hardcoded).**
+- Sebelumnya tab **Berdua → Pengeluaran per Kategori** menampilkan inisial **"R" & "D"** yang di-hardcode (`picShort={reza:'R', dini:'D'}` dan `avaTxt= who==='reza'?'R':'D'`).
+- Ditambah helper `picInitial(who)` yang mengambil **huruf pertama nama** dari `myName()` / `partnerDisplay()` (mendukung huruf beraksen & non-Latin via regex Unicode), dengan fallback `K`/`P` bila nama kosong.
+- `picShort` diubah menjadi fungsi dinamis `picShort()`; call site di Arus Kas (`cf-pic`) dan grup pembagian tugas (`hh-ava`) ikut diperbarui.
+- Avatar kartu "Terhubung dengan {pasangan}" (`duoLinkCardHTML`) juga di-dinamiskan.
+
+**2. Menu "Sumber Terhubung" dihapus dari Profil & Pengaturan.**
+- Baris menu `data-go="sources"` (badge "5") dihilangkan dari grup **Akun**.
+- Layar `scrSources()` itu sendiri tetap ada karena masih dipakai alur onboarding & empty-state — hanya entri menu profilnya yang dihapus.
+
+**Validasi:** sintaks JS OK (`node --check`); uji `picInitial` untuk nama Latin/beraksen/non-Latin/kosong lulus; `atur.html` ⇄ `deploy/public/index.html` identik.
 
 ---
 
