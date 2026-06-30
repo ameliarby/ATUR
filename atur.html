@@ -1218,6 +1218,25 @@
   .imp-scroll .imp-card{margin-bottom:8px;}
   .imp-scroll .imp-summary{padding:11px 13px;gap:10px;}
   .imp-scroll .imp-sum-dir{width:28px;height:28px;border-radius:8px;}
+
+  /* ============================================================
+     ANTI AUTO-ZOOM iOS — Safari/iOS otomatis zoom-in saat fokus ke
+     input/select/textarea ber-font < 16px. Paksa semua kontrol form
+     minimal 16px HANYA di layar HP (coarse pointer / layar kecil),
+     agar tampilan desktop tetap. 16px = ambang aman, tak memicu zoom.
+     ============================================================ */
+  @media (max-width:768px), (pointer:coarse){
+    input:not([type=checkbox]):not([type=radio]):not([type=range]),
+    select, textarea,
+    .form-in, .imp-inp, .imp-sel, .imp-cat, .imp-sub,
+    .imp-date, .imp-time, .imp-amt-in, .imp-desc, .imp-note,
+    .imp-period-fld select, .ap-row input, .cf-dr-fld input,
+    .wa-phone input, .ob-input{
+      font-size:16px !important;
+      /* cegah iOS membesarkan teks otomatis di orientasi tertentu */
+      -webkit-text-size-adjust:100%;
+    }
+  }
 </style>
 </head>
 <body>
