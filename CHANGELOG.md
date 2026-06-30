@@ -2,9 +2,418 @@
 
 > Prototipe dashboard fintech premium Indonesia (single-file HTML).
 > Berkas utama: `atur.html`
-> **Versi saat ini: v1.4.0** (Turn 54 — 30 Juni 2026)
+> **Versi saat ini: v1.9.6** (Turn 74 — 1 Juli 2026)
 
 Penomoran mengikuti [Semantic Versioning](https://semver.org/lang/id/): `MAYOR.MINOR.PATCH`.
+
+---
+
+## v1.9.6 — Turn 74 — 1 Juli 2026
+
+### Rapikan UI: Input Transaksi lebih ringkas, frame kalender filter, & halaman Tambah Aset 🎨
+
+1. **Input Transaksi — lebih ringkas & chip jenis lebih rapi.**
+   - Jarak antar-kolom dipadatkan (`.form-grp` di dalam pane input: `14px` → `11px`; `cur-hint` kosong tak lagi menyisakan ruang).
+   - Chip **Pengeluaran / Pemasukan / Transfer** dirapikan: padding lebih pas (`11px` → `9px 6px`), ukuran ikon diseragamkan (`14px`), teks `nowrap` + `line-height:1` agar tidak melipat dan tinggi ketiga chip selalu sama, ditambah transisi warna halus. Duplikat aturan `.add-dir` yang lama juga dihapus.
+
+2. **Bug diperbaiki — frame kalender pada filter tanggal Catatan Arus Kas.**
+   - Kolom "Dari tanggal" & "Sampai tanggal" (`<input type="date">`) sebelumnya menyisakan **ruang putih berlebih** karena tinggi/padding bawaan WebKit tidak terkendali. Kini tinggi field dikunci (`height:38px`, `box-sizing:border-box`) dan bagian dalam picker dinormalkan (`::-webkit-datetime-edit`, `::-webkit-date-and-time-value`, `::-webkit-calendar-picker-indicator`) sehingga teks tanggal rata kiri tanpa celah kosong.
+
+3. **Halaman Tambah Aset dirapikan.**
+   - **Kolom Bunga diperpendek:** input `%/th` tidak lagi selebar layar (kini `width:120px`, maks `48%`) — sesuai sifatnya yang hanya angka. Diterapkan juga di layar Edit Aset agar konsisten.
+   - **Keterangan "Kurs hanya estimasi untuk demo…" dihapus** dari halaman Tambah Aset sesuai permintaan.
+
+**Verifikasi:** `node --check` lolos. Perubahan murni di lapisan CSS/markup tampilan; tidak ada perubahan logika data.
+
+---
+
+## v1.9.5 — Turn 73 — 1 Juli 2026
+
+### Format ribuan (titik) seragam di SEMUA input nominal manual — `x.xxx.xxx` saat mengetik 🔢
+
+1. **Masalah:** Tampilan saldo/nominal di seluruh aplikasi sudah memakai pemisah ribuan bergaya Indonesia (titik, mis. `Rp 1.250.000`), **tetapi saat pengguna mengetik nominal secara manual** kolom inputnya polos tanpa titik (`1250000`). Tidak konsisten dan menyulitkan membaca angka panjang.
+
+2. **Solusi — satu sumber kebenaran, dipakai di semua kolom.**
+   - Ditambahkan dua helper level-modul: `fmtThousand(str)` (mengubah teks → `x.xxx.xxx` ala `id-ID`) dan `attachThousandFmt(inp)` (memasang auto-format **live** saat mengetik, sambil **menjaga posisi kursor** agar tidak meloncat ke akhir ketika titik bertambah). `attachThousandFmt` idempoten (`dataset.thFmt`) dan aman terhadap `null`.
+   - Semua kolom nominal manual diubah dari `type="number"` → `type="text" inputmode="numeric"` (wajib, karena `type=number` tidak bisa menampilkan titik) lalu dipasangi formatter: **form catat manual** (`#f-amt`), **edit transaksi** (`#e-amt`), **tambah & edit aset** (`#a-amt`, `#ae-amt`), **biaya terjadwal** (`#sc-amt`), **pagu anggaran** (`#b-cap`), **baris pos tetap rasio** (`.ap-amt`), **item target tujuan** (`.ng-it-amt`), serta **kolom Jumlah pada Tinjau AI** (`.imp-amt-in`) kini ikut format live (sebelumnya hanya saat blur).
+
+3. **Backend tetap bersih.** Nilai yang disimpan tetap **angka murni** tanpa titik — semua handler simpan/validasi/hitung dialihkan ke `manualParse()` (mis. `+amt` → `manualParse(...)` pada `#f-amt`, `#e-amt`, `#a-amt`, `#ae-amt`, `#b-cap`, `.ng-it-amt`). Tidak ada perubahan format penyimpanan; hanya lapisan tampilan input.
+
+4. **Verifikasi.** `node --check` lolos; stress test format baru `fmtThousand`/`manualParse` round-trip + `attachThousandFmt` (3/3 lolos); regresi parser (`stress3`) tetap **11/11 lolos**.
+
+---
+
+## v1.9.4 — Turn 72 — 1 Juli 2026
+
+### Tinjau menyeluruh + stress test: pengerasan parser, hapus redundansi, fitur Kunci API AI tersambung lagi 🧪🧹🔗
+
+1. **Stress test parser (jalur paling rawan, mengolah teks PDF/e-statement).**
+   - **Cakupan:** `localParse`, `parseJagoText`, `jagoSampleParse`, `detectBankName`, `detectTransfer`, `normalizeCat`, `normalizeSub`, `pocketToCat`, `manualParse`, `curRate`, `aiDateInRange`, `aiSortedDates` diuji dengan masukan ekstrem: `null`/`undefined`/string kosong/spasi saja, angka & objek non-string, nominal rusak, tanggal hilang, teks bukan-Jago, emoji, dan string sangat panjang.
+   - **Hasil:** Ditemukan 3 fungsi yang bisa melempar `TypeError` bila diberi argumen **non-string** (`localParse`, `normalizeSub`, `pocketToCat`). Walau di alur nyata aplikasi argumennya selalu string (nilai `<select>`/teks PDF), ketiganya diperkeras dengan koersi string defensif (`String(x==null?'':x)`). Setelah perbaikan: **seluruh stress test lolos tanpa pengecualian**.
+
+2. **Hapus redundansi tanpa menghilangkan fitur/seksi.**
+   - **Builder dropdown ganda dihapus:** Logika pembangun `<option>` Kategori/Sub-kategori di Tinjau AI sebelumnya **diduplikasi** — satu salinan di `scrImport()` (`catOptsFor`/`subOptsFor`) dan satu lagi di `renderTop()` (`catOptsLocal`/`subOptsLocal`). Kini disatukan menjadi **dua helper level-modul** `catOptsHTML`/`subOptsHTML` yang dipakai bersama kedua jalur. Selain menghapus duplikasi, ini sekaligus menghilangkan akar masalah *scope* yang dulu memicu bug "+ Tambah lainnya" (Turn 71).
+   - **Konstanta mati `APP_VERSION` dihapus:** Tidak pernah dirujuk di mana pun; versi sudah punya satu sumber kebenaran di `<meta name="app-version">` dan `package.json`.
+   - **Variabel mati `aiState` dihidupkan kembali:** Sebelumnya dihitung di `scrProfile()` tetapi tak dipakai.
+
+3. **Fitur "Kunci API AI" tersambung kembali (tidak dihapus).**
+   - **Masalah:** Layar `scrAiKey()` (mengatur kunci API AI sendiri, opsional) masih ada lengkap dengan rute `data-go="aikey"` dan tombol Simpan/Hapus yang berfungsi, **tetapi tidak punya pintu masuk** setelah perampingan kartu Profil di v1.9.2 — fitur jadi yatim (tak bisa diakses).
+   - **Solusi:** Ditambahkan grup **"Lanjutan"** di **Profil & Pengaturan** dengan baris **Kunci API AI** yang menampilkan status aktif (`Aktif (server)` / `Aktif (kunci sendiri)`), memakai kembali `aiState`. Fitur kini bisa diakses lagi, dan rute yang tadinya mati menjadi hidup — redundansi rute teratasi dengan **mengaktifkan**, bukan menghapus.
+
+4. **Validasi.** Sintaks `atur.html` lolos `node --check`; salinan `deploy/public/index.html` disinkronkan & divalidasi ulang; seluruh stress test (data layer, parser, alur taksonomi end-to-end) hijau.
+
+---
+
+## v1.9.3 — Turn 71 — 30 Juni 2026
+
+### Perbaikan bug "+ Tambah lainnya" yang hilang + persiapan Koneksi Berdua via Supabase 🐛➕🔗
+
+1. **Bug diperbaiki: memilih "+ Tambah lainnya" di Tinjau AI tidak menyimpan taksonomi baru ("hilang begitu saja").**
+   - **Masalah:** Di layar **Tinjau Hasil AI**, saat memilih `+ Tambah lainnya…` lalu mengetik nama kategori/sub-kategori baru, taksonomi tidak tersimpan dan kolom teks lenyap tanpa hasil — kategori baru tidak menjadi pilihan default pada transaksi tersebut.
+   - **Akar masalah (2 penyebab):**
+     - **(a) Salah scope (utama):** Handler `change` untuk `.imp-cat`/`.imp-sub` berada di dalam `renderTop()`, tetapi memanggil `catOptsFor`/`subOptsFor` yang merupakan *closure lokal* di dalam `scrImport()` — di luar jangkauan. Akibatnya terjadi `ReferenceError` saat commit sehingga taksonomi baru diam-diam hilang.
+     - **(b) Blur terlalu dini:** `inlineAddSelect` otomatis membatalkan input saat blur sekalipun kolom masih kosong, sehingga kolom teks bisa tertutup sebelum pengguna sempat mengetik.
+   - **Solusi:**
+     - Handler `.imp-cat`/`.imp-sub` kini membangun opsi dropdown **secara lokal** memakai helper level-modul (`taxFor`, `taxonomy`, `catLabel`, `subLabel`) — tidak lagi bergantung pada closure `scrImport()`. Setelah commit, kategori/sub baru langsung di-`addTaxoCat()`/ditambah ke `taxonomy`, disetel sebagai nilai terpilih pada baris itu, dan dropdown sub ikut diperbarui.
+     - `inlineAddSelect` tidak lagi auto-batal saat kosong; blur hanya menyimpan bila sudah ada teks, jika kosong kolom dibiarkan terbuka.
+   - **Hasil:** Memilih `+ Tambah lainnya` lalu mengetik kini benar-benar membuat taksonomi baru, menyimpannya pada transaksi tersebut, dan menjadikannya nilai default/terpilih — baik di Tinjau AI maupun input transaksi manual.
+
+2. **Persiapan "Koneksi Berdua via Supabase" — skema SQL final + mockup layar koneksi.**
+   - **Konteks:** Mengikuti keputusan memakai versi Supabase paling sederhana (tanpa akun Meta/WhatsApp Business; undangan dibagikan lewat tautan/WhatsApp biasa; Free tier cukup).
+   - **Dikerjakan:**
+     - **`supabase/schema.sql`** — skema final disesuaikan struktur data ATUR: tabel `households`, `household_members`, `transactions` (dengan `member_id`, `is_shared`, `mode` s/b), `assets` (terpisah per mode), dan `invites`. Dilengkapi indeks, trigger `updated_at`, Realtime, serta **RLS berbasis household** yang diperketat: mode Sendiri privat per-user, mode Berdua dibagikan antar anggota household — tidak lagi sekadar "siapa pun yang login".
+     - **`supabase/koneksi-mockup.html`** — mockup statis layar **Koneksi Berdua** dengan 3 keadaan: (1) belum login, (2) sudah login tapi belum tersambung (undang via tautan), (3) sudah tersambung. Ikon WhatsApp diturunkan menjadi salah satu tombol *share* biasa (di samping Salin tautan & Bagikan…), bukan kanal utama.
+   - **Hasil:** Pengguna bisa meninjau skema database & tampilan layar koneksi baru sebelum benar-benar menyambungkan Supabase. Integrasi ke `atur.html` menyusul pada rilis berikutnya.
+
+---
+
+## v1.9.2 — Turn 70 — 30 Juni 2026
+
+### Opsi "+ Tambah lainnya" pada kategori/sub Tinjau AI & perampingan kartu Profil ➕🧹
+
+1. **Tinjau Hasil AI: dropdown Kategori & Sub-kategori kini punya opsi "+ Tambah lainnya…" yang berubah jadi kolom teks.**
+   - **Masalah:** Saat meninjau hasil AI, kategori/sub-kategori hanya bisa dipilih dari daftar yang ada — tidak bisa menambah nama baru langsung di tempat.
+   - **Solusi:** Kedua dropdown diberi opsi `+ Tambah lainnya…`. Saat dipilih, dropdown otomatis berubah menjadi kolom teks (memakai `inlineAddSelect`) untuk mengetik nama baru; kategori baru disimpan via `addTaxoCat()` agar sinkron ke seluruh aplikasi, sub-kategori baru ditambahkan ke `taxonomy` kategori terkait. Membatalkan input mengembalikan pilihan semula.
+   - **Hasil:** Pengguna bisa membuat kategori/sub-kategori baru langsung dari layar Tinjau AI tanpa keluar layar, dan nama baru langsung tersedia di semua dropdown lain.
+
+2. **Profil & Pengaturan dirampingkan — empat kartu dihapus.**
+   - **Masalah:** Kartu "Kunci API AI", "Mata Uang & Format", "Keamanan & PIN", dan "Notifikasi" memenuhi halaman padahal belum berfungsi/diperlukan untuk pengguna.
+   - **Solusi:** Grup "Kecerdasan AI" (Kunci API AI) dan seluruh grup "Preferensi" (Notifikasi, Keamanan & PIN, Mata Uang & Format) dihapus dari `scrProfile()`.
+   - **Hasil:** Halaman Profil & Pengaturan kini lebih ringkas — hanya menyisakan Akun (Edit Profil, Koneksi Berdua), Uang (Anggaran & Alert), dan Reset Data & Keluar.
+
+---
+
+## v1.9.1 — Turn 69 — 30 Juni 2026
+
+### Sumber Kekayaan terpisah per mode, perbaikan bar kontribusi "nyangkut", & saringan periode tanggal di Tinjau AI 🏦🔀📆
+
+1. **Sumber Kekayaan kini terpisah antara Atur Sendiri & Atur Berdua.**
+   - **Masalah:** Daftar aset (`assets`) memakai satu penyimpanan global, sehingga aset yang ditambahkan di mode Berdua ikut muncul di mode Sendiri (dan sebaliknya) — padahal keuangan pribadi dan keuangan bersama seharusnya tidak tercampur.
+   - **Solusi:** Penyimpanan dipisah menjadi `assetsSendiri` dan `assetsBerdua`, diakses lewat `activeAssets()` yang otomatis mengikuti `currentMode`. Semua titik baca/tulis (kartu beranda, layar Sumber Kekayaan, detail aset, tambah/edit/hapus, proyeksi bunga) dialihkan ke akses per-mode. Reset data ikut mengosongkan keduanya.
+   - **Hasil:** Aset di Atur Sendiri dan Atur Berdua benar-benar terpisah; komposisi, total, dan proyeksi bunga masing-masing mode hanya menghitung asetnya sendiri.
+
+2. **Perbaikan bug: bar kontribusi pasangan kadang muncul di "Pengeluaran per Kategori" mode Sendiri.**
+   - **Masalah:** Saat berpindah dari Atur Berdua ke Atur Sendiri, `setMode()` hanya menyegarkan slot hero/duo/ledger — kartu beranda lain (Pengeluaran per Kategori, Sumber Kekayaan, Proyeksi) tidak dirender ulang, sehingga bar komposisi kontribusi (nama pasangan + persen) "nyangkut" di tampilan Sendiri padahal seharusnya hanya tampil di Berdua.
+   - **Solusi:** `setMode()` kini memanggil `refreshDash()` setelah transisi, yang merender ulang seluruh dashboard dari `screenHTML(mode)` lalu memasang ulang semua handler.
+   - **Hasil:** Setiap ganti mode, seluruh kartu yang bergantung mode tersegar konsisten; bar kontribusi pasangan tidak lagi bocor ke mode Sendiri.
+
+3. **Filter tanggal di Tinjau Hasil AI diubah dari chip per-tanggal menjadi saringan PERIODE (Dari … Sampai).**
+   - **Masalah:** Chip per-tanggal hanya bisa memilih satu tanggal sekaligus dan menjadi panjang/berderet saat tanggalnya banyak — kurang praktis untuk menyaring rentang.
+   - **Solusi:** Diganti dua dropdown **Dari** dan **Sampai** (terurut otomatis berdasarkan urutan bulan), menampilkan hanya baris dalam rentang inklusif, lengkap hitungan transaksi pada periode dan tombol "Tampilkan semua". `Dari` dan `Sampai` otomatis ditukar bila terbalik.
+   - **Hasil:** Menyaring rentang tanggal jadi lebih mudah dan ringkas; baris tinjau tetap dapat diedit/dipilih seperti biasa di dalam periode terpilih.
+
+---
+
+## v1.9.0 — Turn 68 — 30 Juni 2026
+
+### Filter tanggal di Tinjau AI, pagu harian ikut waktu nyata, proyeksi kekayaan berbunga, kategori baru, & mood menabung romantis 📅💸💞
+
+**1. Tinjau Hasil AI — filter tanggal horizontal + tampilan lebih ringkas.**
+**Masalah:** halaman tinjau boros ruang (tiap transaksi kartu besar) dan sulit menavigasi banyak tanggal.
+**Solusi:** ditambah **chip filter per-tanggal horizontal** (`.imp-datebar`/`.imp-datechip`, lengkap dengan hitungan transaksi tiap tanggal + chip "Semua") di atas daftar; ketuk chip menyaring baris ke tanggal itu (`aiDateFilter`). Kartu transaksi dirapatkan (padding & ikon ringkasan dikecilkan) agar lebih banyak terlihat sekali layar. Bila filter kosong, muncul pesan ramah.
+**Hasil:** navigasi per tanggal sekali ketuk, halaman jauh lebih ringkas, indeks baris tetap stabil sehingga edit/pilih/buang tetap akurat.
+
+**2. Pagu Harian ikut waktu nyata — bulan lampau = selesai.**
+**Masalah:** sisa hari tidak peka konteks; bulan yang sudah lewat tetap membagi sisa pagu seolah masih berjalan.
+**Solusi:** logika sisa hari di `budgetCardInner()` dibuat tiga keadaan: **bulan lampau → 0** (kartu menampilkan sisa total dengan label "bulan selesai", tanpa pembagian harian), **bulan berjalan → sisa hari nyata** sampai akhir bulan dari tanggal hari ini, **bulan depan → jumlah hari penuh**.
+**Hasil:** angka "sisa per hari" selalu masuk akal dan jujur terhadap kalender berjalan.
+
+**3. Dropdown "Tambah anggaran kategori" — pengeluaran saja + opsi nama baru.**
+**Masalah:** dropdown pagu menampilkan seluruh taksonomi (termasuk pemasukan/transfer) dan tak bisa membuat kategori sendiri.
+**Solusi:** `scrBudgetNew()` kini hanya memuat kategori **pengeluaran** (`taxFor('out')`) + opsi **"+ Tambah kategori…"** yang memunculkan input nama; nama baru ditambahkan ke taksonomi pengeluaran lewat `addTaxoCat('out', nama)` sehingga otomatis tersinkron ke seluruh aplikasi (Arus Kas, e-Statement).
+**Hasil:** anggaran fokus ke pengeluaran, dan kategori buatan user langsung dipakai di mana saja.
+
+**4. Sumber Kekayaan — bunga %/tahun + proyeksi berbunga majemuk dengan grafik & slider.**
+**Masalah:** aset hanya menunjukkan nominal sekarang, tanpa gambaran pertumbuhan.
+**Solusi:** form tambah & edit aset diberi kolom **opsional "Bunga / imbal hasil per tahun (%)"**. Kartu Sumber Kekayaan di beranda kini menampilkan **nominal sekarang** + **proyeksi 1–5 tahun** via **slider tahun** dan **grafik batang** (`.wealth-proj`), memakai bunga majemuk per instrumen (`assetFuture`/`wealthProjTotal`). Detail aset menampilkan **proyeksi kenaikan per tahun** (`assetProjRows`, tahun 1–5 + selisih).
+**Hasil:** user melihat estimasi pertumbuhan kekayaan ke depan, per aset maupun total.
+
+**5. Kategori transfer baru "Tabungan Terjadwal" (Tahunan/Liburan) + penamaan dana disinkronkan.**
+**Masalah:** belum ada kategori transfer khusus tabungan terjadwal; istilah "Annual Fund/Holiday Fund" masih Inggris dan terpisah dari Tujuan Keuangan.
+**Solusi:** ditambah kategori transfer **"Tabungan Terjadwal"** dengan sub **Tahunan** & **Liburan**. Seluruh tampilan **Annual Fund → Tabungan Tahunan**, **Holiday Fund → Tabungan Liburan** (di Target Setoran per Bulan, Tujuan Keuangan, dll.) lewat lapisan label; `goalCollected()` mencocokkan kategori baru **dan** data lama. **Kunci data internal tetap stabil** (`annual`/`holiday`/`Setor Tabungan`) agar data lama & parser AI utuh.
+**Hasil:** setoran via "Tabungan Terjadwal › Tahunan/Liburan" otomatis sinkron dengan Tujuan Keuangan & target setoran — label berubah, data tidak rusak.
+
+**6. Komposisi kontribusi user vs pasangan dipindah ke beranda (ringkas).**
+**Masalah:** komposisi kontribusi rumah tangga terlalu jauh/tersebar.
+**Solusi:** di beranda mode Berdua, kartu **Pengeluaran per Kategori** kini memuat **satu bar** + **dua label nama** dengan **persen** (`.khc-contrib`) — ringkas, tidak wordy.
+**Hasil:** sekilas terlihat siapa berkontribusi berapa, langsung di beranda.
+
+**7. Mood menabung dipindah ke beranda dengan wajah emoji lucu & romantis.**
+**Masalah:** penanda mood ("Yuk mulai sisihkan") berada di Atur Proyeksi Tahunan, jauh dari konteks proyeksi tabungan beranda.
+**Solusi:** kartu mood dihapus dari `scrRasio()` dan dijadikan **penanda di dalam kartu "Proyeksi Tabungan Setahun"** beranda (`savingMoodCardHTML`/`.mood-marker`). Wajah `SAVE_FACES` diganti jadi **lucu & romantis** (pipi merona, mata hati, wajah ciuman mengirim hati) yang naik level seiring tabungan tahunan tumbuh.
+**Hasil:** dorongan emosional untuk menabung berada tepat di tempat yang relevan, dengan nuansa hangat untuk pasangan.
+
+**8. Mode Berdua — Pengeluaran per Kategori dengan toggle user/pasangan + daftar transaksi per orang.**
+**Masalah:** halaman terlalu padat dan sulit melihat transaksi tiap orang.
+**Solusi:** `scrKategoriBerdua()` disederhanakan + **toggle user ⇄ pasangan** (`.kbp-toggle`, state `kbPicTab`). Tiap section menampilkan **kumpulan transaksi orang tersebut** (pengeluaran bulan fokus, dari `curMonthTxns()` + `txnPic()`), dan **tiap baris tappable membuka editor Catatan Arus Kas** (`data-edit-txn`) sehingga benar-benar sinkron.
+**Hasil:** transaksi per orang transparan, ringkas, dan satu sumber kebenaran dengan Catatan Arus Kas.
+
+> Catatan internal: slot PIC `reza`/`dini` tetap dipakai sebagai **kunci slot** (slot1=user, slot2=pasangan) dan **tidak pernah tampil di layar** — tampilan selalu lewat `myName()`/`partnerDisplay()`.
+
+## v1.8.0 — Turn 67 — 30 Juni 2026
+
+### Pagu harian, proyeksi tabungan bisa minus, kategori Berdua sinkron, & seluruh penamaan jadi Bahasa Indonesia 🇮🇩📊
+
+**1. Pagu Harian di beranda (Sendiri & Berdua).**
+**Masalah:** user tidak punya gambaran "boleh habis berapa per hari" dari tiap pagu kategori — hanya ada total pemakaian bulan.
+**Solusi:** ditambah **carousel "Pagu Harian"** di kartu *Anggaran Bulan Ini*, **di bawah bar total**. Kartu mini geser-ke-kanan (`.ph-strip`/`.ph-card`, hemat ruang, gaya seperti *Tujuan Keuangan*) menampilkan **sisa uang per hari** = (pagu − terpakai) ÷ sisa hari bulan ini, bar pemakaian, dan sisa pagu. Sisa hari dihitung dari tanggal berjalan bila bulan fokus = bulan berjalan, selain itu pakai jumlah hari penuh bulan tersebut.
+**Hasil:** saat **lewat pagu**, kartu tampil **merah** dan angka per hari ditulis **minus** (mis. `− Rp 50.000`), bukan dipaksa Rp 0 — jujur menunjukkan defisit.
+
+**2. Proyeksi Tabungan Setahun bisa minus + bar jadi merah (Sendiri & Berdua).**
+**Masalah:** bila proyeksi pengeluaran non-reguler melebihi akumulasi tabungan, nilai dipaksa ke Rp 0 — menyembunyikan bahwa tabungan tahunan sebenarnya **tergerus jadi minus**.
+**Solusi:** `annualProj()` tidak lagi *clamp* `netSaving` (boleh negatif) + flag `deficit`. Di kartu beranda (`#sec-proj`) dan layar Biaya Tahunan, nilai kini tampil `− Rp …` dan **bar tabungan berubah merah** (`.apc-fill.save.deficit` / gradien merah) saat defisit; badge berubah jadi "Defisit". Kedua bar (tabungan vs pengeluaran non-reguler) tetap sinkron dengan satu sumber `annualProj()`.
+**Hasil:** user langsung sadar kalau rencana tahunannya menombok.
+
+**3. Mode Berdua — arus kas & kategori benar-benar sinkron dengan data user.**
+**Masalah:** hero Berdua membaca `familySeries()` (sumber kosong) sementara grafik membaca `monthSeries()` (data aktif) → angka & grafik tak cocok. "Pengeluaran per Kategori" Berdua juga memakai taksonomi pagu rumah tangga buatan (`CAT_TO_BUDGET`) yang tak 1:1 dengan transaksi, plus ada edit pagu inline yang membingungkan.
+**Solusi:** hero Berdua disatukan ke `monthSeries()` (baca `activeTxns` → input manual + e-statement). `deriveAll()` kini menghasilkan `byDonutPic` (pengeluaran per kategori donut **per orang**). `scrKategoriBerdua()` ditulis ulang: kategori 1:1 dengan transaksi (nama donut Indonesia), persen terhadap rumah tangga, dan **split per orang**. Bar **"Kontribusi pengeluaran bersama"** dipindah dari hero **ke dalam** kartu Pengeluaran per Kategori. Edit "pagu bulanan + Simpan" inline beserta handler matinya (`toggleHhEdit`/`saveHh`/`.pic-pick`) dihapus.
+**Hasil:** nominal hero, grafik, daftar per-orang, dan kategori semua menampilkan **angka yang sama** dari data yang user masukkan.
+
+**4. Seluruh taksonomi, kategori & sub-kategori jadi Bahasa Indonesia.**
+**Masalah:** label kategori/sub-kategori masih campur Inggris — kurang ramah untuk user awam.
+**Solusi:** ditambah **lapisan label** `CAT_LABEL_ID`/`SUB_LABEL_ID` + fungsi `catLabel()`/`subLabel()`. **Kunci data tetap stabil** (untuk keutuhan data tersimpan & parser AI), hanya **teks tampilan** yang diterjemahkan di semua titik: baris transaksi, ledger, arus kas, layar edit, tambah pagu, tinjau AI, dana, dan dropdown dinamis.
+**Hasil:** 100% tampilan Bahasa Indonesia tanpa merusak data lama maupun integrasi AI.
+
+> Catatan internal: slot PIC `reza`/`dini` tetap dipakai sebagai **kunci slot** (slot1=user, slot2=pasangan) dan **tidak pernah tampil di layar** — tampilan selalu lewat `myName()`/`partnerDisplay()` sesuai input nama user & pasangan.
+
+## v1.7.0 — Turn 66 — 30 Juni 2026
+
+### Hapus banyak transaksi sekaligus (bulk delete) dengan seret jari — di Arus Kas & Tinjau Hasil AI 🗑️
+
+**Masalah:** menghapus transaksi hanya bisa **satu per satu** (tombol 🗑️ tiap baris). Untuk data banyak — mis. hasil impor e-statement yang bisa ratusan baris — ini melelahkan. Pemilik minta cara yang lebih cepat & tidak membuat layar terasa penuh, idealnya cukup **menyeret jari ke bawah** melewati beberapa baris agar langsung terpilih.
+
+**Solusi (gabungan Opsi 1 *drag-to-select* + Opsi 3 *pilih-semua-yang-tampil*):**
+
+**1. Mode pilih yang bersih.** Ditambah tombol kecil **"Pilih"** di bar atas daftar. Saat ditekan → masuk **mode pilih**: muncul **lingkaran centang** (`.selck`) di kiri tiap baris. Di pemakaian normal tak ada elemen tambahan, jadi layar tetap lega. Saat mode pilih aktif, tombol hapus per-baris & tombol **+ (FAB)** disembunyikan agar tidak membingungkan.
+
+**2. Drag-to-select (seret jari).** Ketuk satu baris lalu **seret ke bawah/atas** → semua baris yang dilewati ikut tercentang otomatis (memakai `pointerdown`/`pointermove`/`pointerup` + `document.elementFromPoint`, jalan di sentuh HP maupun klik-seret desktop). Ketuk tunggal tetap bisa toggle satu baris.
+
+**3. Bar aksi melayang di bawah** (`.selbar-bot`, `position:fixed`): menampilkan "**N dipilih**", tombol **"Pilih semua tampil"** (menghormati filter bank/arah/rentang tanggal yang sedang aktif — inilah Opsi 3), dan tombol **"Hapus (N)"** merah. Sebelum menghapus selalu ada **konfirmasi** (`appConfirm`).
+
+**4. Dua tempat, dua makna jelas:**
+   - **Arus Kas (Catatan Arus Kas):** "Hapus (N)" → menghapus transaksi **permanen** dari store aktif (lewat `activeTxns()`/`saveActiveTxns()`, jadi jalan di mode **Sendiri & Berdua**). "Pilih semua tampil" hanya memilih baris yang sedang terlihat sesuai filter, sehingga tak ada yang salah terhapus di luar layar.
+   - **Tinjau Hasil AI (sebelum simpan):** tombolnya **"Buang (N)"** → hanya **membuang baris dari daftar tinjau** (`aiParsePreview`), bukan menghapus data; tombol "Simpan N Transaksi" otomatis menyesuaikan jumlahnya. Mode pilih di-reset tiap parsing PDF baru.
+
+**State baru:** `catatanSelMode`/`catatanSelected` (Arus Kas) dan `impSelMode`/`impSelected` (Tinjau AI). **CSS baru:** `.sel-btn`, `.selbar-top`, `.selck`, `.cf-txn.picked`/`.imp-card.picked`, `.selbar-bot` (+ `.sb-count`/`.sb-all`/`.sb-del`) — semuanya mode-aware (biru Sendiri / terakota Berdua via `var(--accent)`).
+
+**Yang TIDAK diubah:** perhitungan (`txnIDR`, total, donat, pagu), taksonomi per-jenis, multi-mata-uang, deteksi transfer otomatis, serta tombol hapus & edit satu-satuan yang lama (tetap berfungsi saat mode pilih nonaktif).
+
+**Validasi:** sintaks JS lolos `node --check`; `atur.html` ⇄ `deploy/public/index.html` disinkronkan; versi dinaikkan di `<meta app-version>`, `deploy/package.json`, dan changelog ini; `atur-deploy.zip` di-rebuild. Tidak ada server listener di sandbox.
+
+---
+
+## v1.6.0 — Turn 65 — 30 Juni 2026
+
+### Tiga jenis transaksi (Pemasukan/Pengeluaran/**Transfer**) + taksonomi per-jenis yang bisa ditambah + nominal multi-mata-uang 💱
+
+Permintaan pemilik (berlaku di **Atur Sendiri & Atur Berdua**):
+> "tetap dicatat tapi masuk ke kategori transfer. Jadi ada Pengeluaran, Pemasukan dan Transfer … masing masing taxonomy aku mau dia ada opsi untuk nambah kategori … IDR, USD, SGD, EUR, JPY, AUD. Kurs default saja."
+
+**1. Jenis transaksi ketiga — Transfer.** Field `dir` kini bernilai `'in'` / `'out'` / **`'transfer'`**. Transfer **tetap tercatat** tapi **dikecualikan** dari total Pemasukan & Pengeluaran (mis. "Tambah Uang Kantong" antar-kantong, top-up e-wallet, setor/tarik tabungan). Layar Catatan kini menampilkan **3 angka** (Pemasukan · Pengeluaran · Transfer) dengan kotak Transfer berwarna indigo. Tombol arah di form Tambah, Edit, dan Tinjau-Impor kini 3 pilihan.
+
+**2. Taksonomi per-jenis + bisa nambah kategori.** Kategori kini dikelompokkan per jenis lewat `TAXO_BY_DIR` (out/in/transfer); ganti jenis → daftar kategori ikut menyesuaikan. Setiap jenis punya opsi **"+ Tambah kategori"** (lewat `addTaxoCat(dir,name)`). Data lama dipetakan otomatis (`Revenue→Salary`, `Investment→Investment Return`, `Annual/Holiday Fund→Setor Tabungan`, `Lainnya→Other Expense`) via `CAT_MIGRATE`/`migrateCat`/`normalizeCat`.
+
+**3. Nominal multi-mata-uang (kurs default).** Dropdown mata uang **IDR · USD · SGD · EUR · JPY · AUD** di form Tambah & Edit. Tiap transaksi simpan `cur` + `rate` (kurs default bawaan via `CURRENCIES`/`curRate`). Semua agregasi (total bulanan, saldo, rasio, donat, per-bank) dihitung dalam IDR lewat `txnIDR()`, tapi tampilan baris tetap menunjukkan nilai mata uang asli + ekuivalen Rp.
+
+**Deteksi transfer otomatis di impor & demo.** `detectTransfer()` menandai "Tambah Uang Kantong / Pindah uang antar Kantong" → Antar Kantong, "Isi Saldo E-Wallet" → Top-up E-Wallet, "Setor/Tarik Uang Kantong" → Setor/Tarik Tabungan. Diterapkan di `parseJagoText`, `shapeAiTxns`, dan fixture demo `jagoSampleParse`. Bunga = pemasukan riil, Pajak Bunga = pengeluaran riil (tetap dihitung).
+
+**Validasi:** sintaks JS lolos `node --check`. CSS baru ditambah (`.stat-grid-3`, `.sv.trf`, `.dir-opt.on.transfer`, `.dir-toggle-3`/`.add-dir-3`/`.imp-dirtoggle-3`, `.amt-row`, `.cur-sel`, `.cur-hint`, `.cf-dir.trf`, `.cf-amt.trf`, `.imp-sum-dir.trf`, `.imp-sum-amt.trf`, `.imp-dirbtn.on.trf`). Tidak ada server listener di sandbox.
+
+---
+
+## v1.5.2 — Turn 64 — 30 Juni 2026
+
+### Konfirmasi alur "Upload PDF" di UI + pengurai cadangan PDF Bank Jago diperkuat 📄
+
+Permintaan pemilik: di UI, user **tetap upload PDF** (karena e-statement bank umumnya PDF, bukan Excel); semua analisa terjadi **di backend** dan tak terlihat user.
+
+- **UI sudah benar (dikonfirmasi):** layar "Unggah e-Statement" memakai input `accept="application/pdf"` + tombol "Pilih PDF". Alur untuk user: pilih PDF → ekstraksi teks di browser (pdf.js; OCR Tesseract bila PDF hasil scan) → teks dikirim ke backend (`/api/parse-estatement`) → AI normalkan ke 8 kolom & kategorikan → tinjau & simpan. Tidak ada perubahan langkah yang perlu untuk memenuhi permintaan ini.
+- **`parseJagoText()` ditulis ulang** (pengurai cadangan saat AI/server tak tersedia) agar **cocok dengan struktur PDF Bank Jago yang sebenarnya**: tiap blok transaksi = Tanggal · Waktu · Sumber/Tujuan (1–2 baris) · jenis transaksi (Pembayaran QRIS/Transfer/Bunga/…) · ID# · Catatan opsional · **Jumlah (tak bertanda; minus = keluar)** · **Saldo**. Aturan kunci: dua angka terakhir di blok = [Jumlah, Saldo-setelah-transaksi].
+- Pengurai cadangan kini juga menghasilkan **8 kolom granular** (`source`, `detail`, `balance`, `dateFull`, `timeFull`) — seragam dengan jalur AI, sehingga hasil offline tetap kaya & konsisten.
+- Komentar lama yang keliru ("teks PDF Jago tak bisa diurai di browser") dihapus — terbukti pdf.js mengekstrak teksnya bersih.
+
+**Validasi pada PDF asli pemilik** (`dummy_e_statement_mei_2026.pdf`, Bank Jago, 12 halaman): pengurai cadangan baru berhasil membaca **126 transaksi** dari semua kantong, memetakan benar ke 8 kolom (Nama Kantong · Tanggal · Waktu · Sumber/Tujuan · Rincian · Catatan=saldo-setelah · Jumlah±  · Saldo). Sintaks JS OK. Tidak ada server listener di sandbox.
+
+---
+
+## v1.5.1 — Turn 62 — 30 Juni 2026
+
+### Tahap 1 baca PDF tahan-banting (format macam-macam) + kategori prioritas dari Nama Kantong 🧩
+
+Memperjelas & memperkuat alur 2 tahap (pilihan A: backend menerima **teks** hasil ekstraksi PDF dari browser):
+
+**Tahap 1 — baca & normalkan PDF macam-macam → 8 kolom seragam**
+- Prompt sistem dipindah ke modul tunggal `deploy/api/_estatement-prompt.js` (+ salinan `deploy/tools/estatement-prompt.js`), dipakai bersama oleh `parse-estatement.js` & `extract-excel.js` agar konsisten.
+- Prompt ditulis ulang agar **eksplisit menangani format bermacam-macam** (Bank Jago, BCA, Mandiri, BNI, BRI, Jenius, dll.; berkantong maupun tidak; urutan/nama kolom berbeda): AI diminta membaca apa pun layout-nya lalu **menormalkan** ke skema seragam, mengabaikan baris non-transaksi (header, subtotal, ringkasan, footer).
+- Mengenali variasi arah dana: tanda +/− **atau** kolom Debit/Kredit (DB/CR).
+
+**Tahap 2 — implementasi ke aplikasi (Jumlah · Remarks · Pemasukan/Pengeluaran)**
+- **Kategori berprioritas Nama Kantong**: aturan ditegaskan — (a) PERTAMA petakan dari nama kantong (`Food`→Food, `Groceries`→Groceries, `Holiday Fund`→Vacation, `Annual Fund`→Investment, `Self Care`→Selfcare, dst.), (b) BARU fallback tebak dari Rincian/merchant bila tak ada kantong. Di frontend sudah dijalankan via `pocketToCat()` (`shapeAiTxns` baris ~3319).
+- `shapeAiTxns()` kini **meneruskan field granular** Tahap 1 ke transaksi: `source`, `detail`, `balance` (saldo setelah transaksi), `dateFull`, `timeFull` — dengan fallback rapi dari `sender` lama. Field-field ini ikut **tersimpan** saat impor (handler `imp-confirm`), sehingga tersedia untuk analisa & ekspor 8 kolom.
+
+**Validasi:** sintaks JS OK (backend 4 berkas + frontend); uji konversi campuran (transaksi berkantong & tanpa kantong, format tanggal `DD Mon`/`DD/MM/YYYY`, waktu dengan/ tanpa detik) menghasilkan 8 kolom benar; prompt memuat aturan PRIORITAS kantong (terverifikasi). Tidak ada server listener di sandbox.
+
+---
+
+## v1.5.0 — Turn 61 — 30 Juni 2026
+
+### Backend: ekstraksi e-statement → Excel 8 kolom untuk bahan analisa 📊
+
+Menambah jalur backend yang mengubah e-statement menjadi tabel **8 kolom terstruktur** (urutan tetap), sebagai format informasi untuk menganalisa e-statement:
+
+| # | Kolom | Isi |
+|---|---|---|
+| 1 | Nama Kantong | nama kantong/pocket (bila ada) |
+| 2 | Tanggal Transaksi | tanggal lengkap (`dateFull`) |
+| 3 | Waktu | waktu lengkap jam s/d detik (`timeFull`) |
+| 4 | Sumber/Tujuan Transaksi | pengirim/penerima (`source`) |
+| 5 | Rincian Transaksi | merchant + info tambahan (`detail`) |
+| 6 | Catatan | **saldo SETELAH transaksi** (running balance) |
+| 7 | Jumlah | nominal bertanda — **+ masuk / − keluar** |
+| 8 | Saldo | **perubahan** saldo kantong = nilai Jumlah |
+
+**Berkas baru:**
+- `deploy/api/extract-excel.js` — Serverless Function `POST /api/extract-excel`: menerima teks e-statement, memanggil parser AI yang sama (kunci OpenAI RAHASIA di server), membalas `{columns, rows, csv, transactions}`. CSV berformat UTF-8+BOM (langsung dibuka di Excel/Sheets).
+- `deploy/tools/estatement-columns.js` (+ salinan `deploy/api/_estatement-columns.js`) — **sumber kebenaran tunggal** skema 8 kolom + pemetaan transaksi → baris + generator CSV.
+- `deploy/tools/estatement-to-excel.js` — CLI backend: `node tools/estatement-to-excel.js <input.json|-> [output]` → menulis `.csv` (selalu) dan `.xlsx` (bila paket `xlsx` terpasang).
+
+**Perubahan parser:** prompt `parse-estatement.js` diperkaya agar AI mengeluarkan field granular yang dibutuhkan 8 kolom: `source` & `detail` terpisah, `balance` (saldo setelah transaksi), serta `dateFull` & `timeFull` (waktu lengkap sampai **detik**). Field lama (`sender`, `note`, `date`, `time`) tetap ada untuk kompatibilitas.
+
+**Catatan desain kolom 6 vs 8:** "Catatan" = saldo setelah transaksi (dari kolom Saldo e-statement); "Saldo" = perubahan/delta berdasarkan Jumlah. Sengaja dipisah sesuai definisi yang diminta. Konverter punya fallback rapi: bila hanya ada `sender` (data lama), otomatis dipecah jadi source/detail; header 8 kolom selalu hadir meski transaksi kosong.
+
+**Validasi:** sintaks JS OK (`node --check`) untuk keempat berkas; uji konversi 3 transaksi + data format lama + kasus kosong semuanya benar. Tidak ada server listener yang dijalankan di sandbox.
+
+---
+
+## v1.4.6 — Turn 60 — 30 Juni 2026
+
+### Pagu per kategori benar-benar kosong + taksonomi penuh + chart Berdua empty-state + tujuan keuangan terpisah per mode 🧹
+
+Tiga permintaan ditangani:
+
+**1. Pagu per kategori (Sendiri) DEFAULT KOSONG + dropdown taksonomi lengkap**
+   - Array `budgets` kini `[]` (kosong). Layar **Anggaran Bulan Ini › Pagu per Kategori** menampilkan **empty-state** ("Belum ada pagu kategori") sampai user menekan **+ Tambah**. Tidak ada lagi 6 kartu pra-isi.
+   - Dropdown **"Kategori (sesuai arus kas)"** pada **Tambah Anggaran** kini menarik **taksonomi LENGKAP** (`validCats()` → ±17 kategori: Food, Groceries, Transport, Family, Housing, Utilities, Shopping, Subscription, Vacation, Investment, Revenue, Selfcare, Medical, Entertainment, Annual Fund, Holiday Fund, Lainnya) — bukan lagi hanya 6 kategori donut.
+   - Pemakaian per pagu (`sendiriBudgetSpent`) kini dibaca **presisi** dari `deriveAll().byCat` (kategori taksonomi mentah) sehingga angka "terpakai" cocok persis dengan kategori di Arus Kas. Ditambah agregasi baru `byCat` di `deriveAll()`.
+   - Kartu pagu tersimpan/dimuat ulang dari `atur_budget_caps` dengan rekonstruksi otomatis (warna & ikon dari tabel `TAXO_META`).
+
+**2. Chart "Arus Kas Keluarga" (Berdua) — empty-state saat tak ada data**
+   - `chartSVG()` kini mendeteksi bila **semua bulan = 0** (tak ada pemasukan/pengeluaran) dan menampilkan placeholder **"Belum ada data · Tambah transaksi untuk melihat grafik"** alih-alih batang setinggi 0. Berlaku untuk Sendiri & Berdua (keduanya dirutekan via `activeTxns()`).
+   - Penegasan: data e-statement / manual Sendiri & Berdua **tetap terpisah** (store `manualTxns` vs `householdTxns` dari v1.4.5).
+
+**3. Pengeluaran per Kategori & Tujuan Keuangan Berdua = 0 bila kosong, terpisah dari Sendiri**
+   - **Pengeluaran per Kategori** Berdua sudah membaca `deriveAll().byDonut` per mode → otomatis **0** bila Berdua belum ada transaksi.
+   - **Tujuan Keuangan** (Annual/Holiday Fund) + Proyeksi Non-Reguler kini **terpisah per mode**: ditambah `_projStore` yang memisahkan `goals`, `scheduledCosts`, `fixedIncome`, `fixedExpense` untuk mode `s` vs `b`. Saat `setMode()` ganti mode, isi di-`swapProjStore()`. Jadi tujuan keuangan Berdua **default 0/kosong** dan tidak ikut data Sendiri.
+
+**Validasi:** sintaks JS OK (`node --check`); `atur.html` ⇄ `deploy/public/index.html` disinkronkan; versi dinaikkan di `<meta app-version>`, `deploy/package.json`, dan changelog ini.
+
+---
+
+## v1.4.5 — Turn 59 — 30 Juni 2026
+
+### Default kosong + ATUR Berdua punya store data sendiri (tak lagi sync dengan Sendiri) 🔒
+
+Empat permintaan ditangani sekaligus:
+
+**1. Dropdown "Tambah Anggaran" = kategori arus kas** (lanjutan v1.4.4) — dipastikan pilihan dropdown ditarik dari `cats` (kategori Arus Kas), disaring dari yang sudah punya pagu.
+
+**2. Pagu per kategori default KOSONG** — baik `budgets` (Sendiri) maupun `householdBudgets` (Berdua) kini `cap:0`. Kartu menampilkan *"belum diatur"* sampai user mengisi pagu sendiri lewat tombol **Ubah**. Tidak ada lagi pagu/angka demo.
+
+**3. Annual Fund & Holiday Fund hanya terisi dari input user** — target kedua fund (`goalTgt`) murni dihitung dari `scheduledCosts`, yang **hanya bertambah** saat user menambah biaya di **Kelola biaya tahunan non-reguler**. Default kosong → target & progress = Rp 0.
+
+**4. ATUR Berdua = STORE TERPISAH dari ATUR Sendiri** *(perubahan utama)* —
+   - Ditambah store transaksi baru `householdTxns` (localStorage `atur_household_txns`), terpisah dari `manualTxns` (Sendiri).
+   - Accessor `activeTxns()` / `saveActiveTxns()` mengarahkan **semua** baca-tulis transaksi ke store sesuai mode aktif. Dirutekan ulang: `curMonthTxns`, `deriveAll`/`deriveSig`, `allTxns`, `savingRatio`, `monthTotals(ForIndex)`, `curMonthKey`, `defaultTxnDate`, `goalCollected`, plus handler **tambah / edit / hapus / impor e-statement**.
+   - Akibatnya transaksi yang dicatat di **Berdua tidak muncul di Sendiri**, dan sebaliknya. Keduanya **default kosong**.
+   - Pagu rumah tangga (Berdua) kini bisa diatur per kategori (tombol **Ubah** di layar *Pengeluaran per Kategori*) dan disimpan **terpisah** di `atur_hh_budget_caps`. Fallback angka demo `b.spent` dihapus — pemakaian selalu dihitung dari transaksi Berdua (0 bila kosong).
+   - **Reset Data** kini ikut menghapus `atur_household_txns` & `atur_hh_budget_caps`.
+
+> Catatan: Proyeksi Tahunan (pemasukan/pengeluaran tetap & biaya non-reguler) bersifat in-memory dan tidak dipersistkan, sehingga selalu mulai kosong tiap sesi.
+
+**Validasi:** sintaks JS OK (`node --check`); `atur.html` ⇄ `deploy/public/index.html` disinkronkan.
+
+---
+
+## v1.4.4 — Turn 58 — 30 Juni 2026
+
+### Konfirmasi: dropdown "Tambah Anggaran" bersumber langsung dari kategori arus kas ✅
+
+- Dropdown **Kategori** pada layar **Tambah Anggaran** (`scrBudgetNew`) kini dipastikan menarik pilihannya **langsung dari array `cats`** — yaitu sumber kebenaran kategori **Arus Kas** (donut): `Cicilan KPR`, `Keluarga`, `Makanan & Minuman`, `Transportasi`, `IPL & Utilitas`, `Lainnya`.
+- Pilihan dibangun lewat `cats.map(c => c.nm)` dan **disaring** terhadap kategori yang sudah punya pagu (`used`), sehingga **tak ada kategori ganda** dan label dropdown **selalu identik** dengan kategori arus kas — tidak ada lagi nama bebas/menyimpang.
+- Bila semua kategori arus kas sudah punya pagu, dropdown diganti catatan *"Semua kategori arus kas sudah punya pagu."*
+- Karena nama kategori pagu = nama kategori arus kas, angka **terpakai** tetap selaras 1:1 (lihat v1.4.3).
+
+> Hasil: apa pun kategori yang muncul di Arus Kas akan otomatis tersedia sebagai pilihan pagu — keduanya tak mungkin lagi berbeda.
+
+**Validasi:** sintaks JS OK (`node --check`); `atur.html` ⇄ `deploy/public/index.html` disinkronkan.
+
+---
+
+## v1.4.3 — Turn 57 — 30 Juni 2026
+
+### Selaraskan kategori pagu (anggaran) dengan kategori arus kas 🔗
+
+**Masalah:** angka **terpakai** pada kartu pagu tidak cocok dengan total kategori yang sama di **arus kas**. Contoh: set pagu *Makanan* Rp 1 jt, tapi arus kas mencatat Rp 2 jt — angkanya tidak nyambung. Penyebabnya: daftar pagu mode **Sendiri** memakai nama kategori (`Hiburan`, `Belanja`) yang **tidak ada** di kategori arus kas (donut), sehingga keduanya dipetakan ke `Lainnya` dan terjadi tumpang-tindih / penghitungan ganda.
+
+**Perbaikan:**
+- **`budgets` (pagu Sendiri) kini persis sama dengan 6 kategori arus kas:** `Cicilan KPR`, `Keluarga`, `Makanan & Minuman`, `Transportasi`, `IPL & Utilitas`, `Lainnya`. Nama `Hiburan` & `Belanja` yang menyimpang dihapus.
+- **`sendiriBudgetSpent()`** kini memakai `sendiriDonutKey(b)` yang mencocokkan nama pagu **1:1** dengan kategori arus kas (`deriveAll().byDonut`). Tersedia tabel kompatibilitas `SENDIRI_BUDGET_TO_DONUT` untuk data lama (`Hiburan`/`Belanja` → `Lainnya`). Fallback demo `b.spent` dihapus.
+- **"Tambah Anggaran" (`scrBudgetNew`)** kini hanya menawarkan kategori arus kas yang **belum** punya pagu (cegah duplikat). Bila semua sudah dipakai, muncul catatan *"Semua kategori arus kas sudah punya pagu."* Kolom isian nama bebas dihapus; label menjadi **"Kategori (sesuai arus kas)"**.
+- **Handler simpan (`b-save`)** memakai nama kategori arus kas langsung + warna/ikon donut yang sesuai, dengan dedup.
+
+> Hasil: angka **terpakai** pada tiap kartu pagu = total kategori **yang sama** di arus kas. Skenario "pagu Rp 1 jt, arus kas Rp 2 jt" kini benar menampilkan kondisi **lewat pagu** (over-budget), bukan salah hitung.
+
+**Validasi:** sintaks JS OK (`node --check`); `atur.html` ⇄ `deploy/public/index.html` disinkronkan.
+
+---
+
+## v1.4.2 — Turn 56 — 30 Juni 2026
+
+### Hapus tombol "Atur anggaran" ganda di kartu Anggaran Bulan Ini 🧹
+
+- Pada v1.4.1 empty-state kartu **Anggaran Bulan Ini** menampilkan tautan **"Atur anggaran"**, padahal header kartu sudah punya tombol **"Atur"** — jadi ada dua tombol dengan fungsi sama.
+- Tautan **"Atur anggaran"** di empty-state dihapus; cukup pertahankan tombol **"Atur"** di header kartu. Teks ajakan tetap ada.
+
+**Validasi:** sintaks JS OK (`node --check`); `atur.html` ⇄ `deploy/public/index.html` disinkronkan.
+
+---
+
+## v1.4.1 — Turn 55 — 30 Juni 2026
+
+### Perbaikan kartu "Anggaran Bulan Ini" — user harus set pagu dulu 🎯
+
+**Masalah:** kartu **Anggaran Bulan Ini** di beranda menampilkan persentase pagu yang menyesatkan ketika pengguna **belum** mengatur anggaran apa pun. Penyebabnya di `budgetCardInner()`: total pagu di-fallback ke `|| 1` (juta), sehingga `pc = totSpent / 1 × 100` menghasilkan bar terisi penuh / >100% padahal tak ada pagu yang ditetapkan.
+
+**Perbaikan:**
+- `budgetCardInner()` kini mengecek `totCap > 0` (apakah pengguna sudah menetapkan pagu untuk minimal satu kategori).
+- **Bila belum ada pagu** → tampilkan empty-state: *"Belum ada pagu. Atur anggaran per kategori dulu — pemakaian akan terhitung otomatis dari arus kas."* + tautan **Atur anggaran**. Tidak ada lagi persentase semu.
+- **Bila pagu sudah ada** → pemakaian dihitung otomatis dari arus kas (`deriveAll` / `sendiriBudgetSpent`), dengan label diperjelas: `Rp X terpakai · Y% dari Rp Z pagu`.
+- Berlaku untuk mode **Sendiri** & **Berdua** (guard memakai baris pagu sesuai mode).
+- CSS baru `.budg-empty-row` / `.budg-empty-txt`.
+
+> Alur yang benar kini: **set anggaran → pemakaian otomatis terhitung dari arus kas**, bukan menebak persentase saat pagu kosong.
+
+**Validasi:** sintaks JS OK (`node --check`); `atur.html` ⇄ `deploy/public/index.html` disinkronkan.
 
 ---
 

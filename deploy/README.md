@@ -11,7 +11,12 @@ deploy/
 ├─ public/
 │  └─ index.html      # seluruh aplikasi (HTML + CSS + JS inline)
 ├─ api/
-│  └─ parse-estatement.js  # Serverless Function (proxy AI; kunci OpenAI di server)
+│  ├─ parse-estatement.js     # Serverless Function (proxy AI; kunci OpenAI di server)
+│  ├─ extract-excel.js        # Serverless Function (ekstraksi e-statement -> 8 kolom + CSV)
+│  └─ _estatement-columns.js  # skema 8 kolom (urutan tetap) — dipakai extract-excel
+├─ tools/
+│  ├─ estatement-columns.js   # skema 8 kolom (sumber kebenaran, dipakai CLI)
+│  └─ estatement-to-excel.js  # CLI: transaksi JSON -> file .csv (+ .xlsx bila ada)
 ├─ vercel.json        # konfigurasi deploy Vercel (static + serverless)
 ├─ .replit            # konfigurasi run/deploy Replit
 ├─ replit.nix         # dependensi Nix untuk Replit
@@ -37,6 +42,57 @@ Saat pengguna mengunggah e-statement (PDF mutasi rekening), ATUR membaca SEMUA t
 | `ATUR_ALLOW_ORIGIN` | — | `*` | Origin yang diizinkan CORS. |
 
 > Set `OPENAI_API_KEY` lalu **Redeploy** agar berlaku. Bila ATUR di-host di domain berbeda dari API-nya, set `window.ATUR_AI_PROXY_URL` ke URL function-nya.
+
+## Ekstraksi e-Statement → Excel 8 kolom (untuk analisa di backend)
+
+Selain `parse-estatement` (untuk impor ke aplikasi), tersedia jalur khusus yang mengubah e-statement menjadi tabel **8 kolom terstruktur** sebagai bahan analisa. Urutan kolom **tetap** (jangan diubah tanpa update CHANGELOG):
+
+| # | Kolom | Isi |
+|---|---|---|
+| 1 | **Nama Kantong** | nama kantong/pocket (bila ada) |
+| 2 | **Tanggal Transaksi** | tanggal lengkap (`dateFull`) |
+| 3 | **Waktu** | waktu lengkap, jam s/d detik (`timeFull`) |
+| 4 | **Sumber/Tujuan Transaksi** | pengirim/penerima (`source`) |
+| 5 | **Rincian Transaksi** | deskripsi: merchant + info tambahan (`detail`) |
+| 6 | **Catatan** | **saldo SETELAH transaksi** (running balance, `balance`) |
+| 7 | **Jumlah** | nominal bertanda — **+ uang masuk / − uang keluar** |
+| 8 | **Saldo** | **perubahan** saldo kantong = nilai Jumlah |
+
+> Catatan: kolom **Catatan** (6) = saldo setelah transaksi, sedangkan **Saldo** (8) = perubahan/delta berdasarkan Jumlah. Keduanya sengaja dipisah sesuai definisi.
+
+### A. Endpoint backend — `POST /api/extract-excel`
+
+Kirim teks e-statement (hasil ekstraksi PDF/OCR di browser), balasannya:
+
+```jsonc
+{
+  "columns": ["Nama Kantong","Tanggal Transaksi","Waktu","Sumber/Tujuan Transaksi",
+              "Rincian Transaksi","Catatan","Jumlah","Saldo"],
+  "rows":    [ /* array baris 8 kolom siap pakai */ ],
+  "csv":     "<string CSV UTF-8+BOM, siap diunduh / dibuka di Excel>",
+  "transactions": [ /* data mentah, kompat dgn parse-estatement */ ]
+}
+```
+
+Memakai kunci OpenAI server yang sama (env var). Bila `OPENAI_API_KEY` belum diset → balas `501 ai-not-configured`.
+
+### B. CLI backend — `tools/estatement-to-excel.js`
+
+Untuk konversi batch/offline dari JSON transaksi menjadi berkas Excel:
+
+```bash
+cd deploy
+node tools/estatement-to-excel.js parsed.json hasil_mei
+#  -> hasil_mei.csv  (selalu; UTF-8+BOM, langsung dibuka di Excel/Sheets)
+#  -> hasil_mei.xlsx (bila paket 'xlsx' terpasang: `npm i xlsx`)
+
+# atau dari STDIN:
+cat parsed.json | node tools/estatement-to-excel.js - hasil
+```
+
+`parsed.json` bisa berupa `{"transactions":[...]}` atau array transaksi langsung (field hasil `/api/parse-estatement`). Skema kolomnya bersumber tunggal dari `tools/estatement-columns.js`.
+
+
 
 ### Ekstraksi PDF & OCR (lazy-loaded)
 

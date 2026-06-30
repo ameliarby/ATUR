@@ -1,27 +1,29 @@
-// /api/parse-estatement  — Vercel Serverless Function (Node.js runtime)
+// /api/extract-excel — Vercel Serverless Function (Node.js runtime)
 //
-// Proxy AI ATUR: menerima TEKS e-statement (hasil ekstraksi/OCR di sisi browser),
-// memanggil OpenAI dengan API key RAHASIA dari environment variable server,
-// lalu mengembalikan JSON array transaksi. API key TIDAK PERNAH dikirim ke browser.
+// EKSTRAKSI E-STATEMENT -> EXCEL (8 kolom) untuk analisa di backend.
+// Menerima TEKS e-statement (hasil ekstraksi PDF/OCR di sisi browser), memanggil
+// parser AI yang SAMA dengan /api/parse-estatement (kunci OpenAI RAHASIA di server),
+// lalu mengembalikan:
+//   - "columns"      : definisi header 8 kolom (urutan tetap)
+//   - "rows"         : array baris terstruktur 8 kolom
+//   - "csv"          : string CSV (UTF-8 + BOM) siap diunduh / dibuka di Excel
+//   - "transactions" : data transaksi mentah (kompat dengan parse-estatement)
 //
-// Konfigurasi (Vercel → Project → Settings → Environment Variables):
-//   OPENAI_API_KEY   (wajib)  — kunci OpenAI milik pemilik aplikasi
-//   OPENAI_MODEL     (opsional, default "gpt-4o-mini")
-//   OPENAI_BASE_URL  (opsional, default "https://api.openai.com/v1") — untuk Azure/proxy lain
-//   ATUR_ALLOW_ORIGIN(opsional) — origin yang diizinkan CORS; default "*" (situs statis)
+// Urutan 8 kolom (sesuai definisi pemilik aplikasi):
+//   1 Nama Kantong · 2 Tanggal Transaksi · 3 Waktu · 4 Sumber/Tujuan Transaksi
+//   5 Rincian Transaksi · 6 Catatan(=saldo setelah transaksi) · 7 Jumlah(+/-) · 8 Saldo(=perubahan)
 //
-// Catatan: file ini hanya memanggil layanan AI EKSTERNAL milik pemilik aplikasi
+// Catatan: file ini HANYA memanggil layanan AI EKSTERNAL milik pemilik aplikasi
 // (OpenAI / endpoint yang Anda set sendiri). Jangan mengarahkan ke endpoint
 // inference internal perusahaan.
 
+const { COLUMNS, txnsToRows, txnsToCSV } = require('./_estatement-columns');
 const { buildSystemPrompt } = require('./_estatement-prompt');
 
-const MAX_CHARS = 16000;       // batasi panjang teks yang dikirim ke model
-const RATE_WINDOW_MS = 60_000; // jendela rate-limit per-IP
-const RATE_MAX = 12;           // maksimum request per jendela per-IP
+const MAX_CHARS = 16000;
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = 12;
 
-// Rate-limit sederhana berbasis memori (per instance). Untuk skala besar
-// gunakan KV/Redis; ini cukup untuk mencegah penyalahgunaan ringan.
 const _hits = new Map();
 function rateLimited(ip) {
   const now = Date.now();
@@ -42,7 +44,6 @@ module.exports = async function handler(req, res) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    // Server belum dikonfigurasi: beri sinyal jelas agar frontend fallback ke parser lokal.
     res.status(501).json({ error: 'ai-not-configured', message: 'OPENAI_API_KEY belum diset di server.' });
     return;
   }
@@ -50,7 +51,6 @@ module.exports = async function handler(req, res) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   if (rateLimited(ip)) { res.status(429).json({ error: 'rate-limited' }); return; }
 
-  // Body bisa sudah berupa object (Vercel auto-parse) atau string.
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
   const text = (body && typeof body.text === 'string') ? body.text : '';
@@ -91,8 +91,15 @@ module.exports = async function handler(req, res) {
       const m = content.match(/\[[\s\S]*\]/);
       arr = m ? JSON.parse(m[0]) : [];
     }
+    const txns = Array.isArray(arr) ? arr : [];
+
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ transactions: Array.isArray(arr) ? arr : [] });
+    res.status(200).json({
+      columns: COLUMNS.map((c) => c.header),
+      rows: txnsToRows(txns),
+      csv: txnsToCSV(txns),
+      transactions: txns,
+    });
   } catch (e) {
     res.status(500).json({ error: 'proxy-failed', message: String(e && e.message || e).slice(0, 300) });
   }

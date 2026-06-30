@@ -20,3 +20,13 @@ Thumbs.db
 
 # Local zip bundle (regenerated from deploy/)
 atur-deploy.zip
+
+# Data pribadi / e-statement nyata (JANGAN commit — berisi data keuangan & alamat)
+jago_may.pdf
+jago_text.txt
+*.e-statement.pdf
+/data-pribadi/
+
+# Backup HTML versi lama (sudah ada di git history)
+atur_v*.html
+*_backup.html
