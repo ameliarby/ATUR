@@ -4,8 +4,8 @@
   "private": true,
   "description": "ATUR — aplikasi pencatatan & pelacakan keuangan (Sendiri & Berdua). Static single-file HTML.",
   "scripts": {
-    "start": "serve public -l ${PORT:-3000}",
-    "dev": "serve public -l 3000"
+    "start": "serve . -l ${PORT:-3000}",
+    "dev": "serve . -l 3000"
   },
   "devDependencies": {
     "serve": "^14.2.3"

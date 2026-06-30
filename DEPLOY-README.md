@@ -1,27 +1,25 @@
 # ATUR — Aplikasi Pencatatan Keuangan
 
-Prototipe aplikasi **pencatatan & pelacakan** keuangan pribadi (ATUR Sendiri) dan rumah tangga/pasangan (ATUR Berdua). Seluruh aplikasi adalah **satu file HTML statis** (`public/index.html`) — tanpa backend, tanpa build step, tanpa dependensi runtime. Data tersimpan lokal di browser (localStorage).
+Prototipe aplikasi **pencatatan & pelacakan** keuangan pribadi (ATUR Sendiri) dan rumah tangga/pasangan (ATUR Berdua). Seluruh aplikasi adalah **satu file HTML statis** (`index.html`) — tanpa backend, tanpa build step, tanpa dependensi runtime. Data tersimpan lokal di browser (localStorage).
 
 > Catatan: ATUR adalah aplikasi **pencatatan**, bukan aplikasi perbankan. Tidak ada perpindahan uang nyata maupun saldo virtual; semua angka dihitung dari transaksi yang dicatat pengguna.
 
 ## Struktur
 
 ```
-deploy/
-├─ public/
-│  └─ index.html      # seluruh aplikasi (HTML + CSS + JS inline)
-├─ api/
-│  ├─ parse-estatement.js     # Serverless Function (proxy AI; kunci OpenAI di server)
-│  ├─ extract-excel.js        # Serverless Function (ekstraksi e-statement -> 8 kolom + CSV)
-│  └─ _estatement-columns.js  # skema 8 kolom (urutan tetap) — dipakai extract-excel
-├─ tools/
-│  ├─ estatement-columns.js   # skema 8 kolom (sumber kebenaran, dipakai CLI)
-│  └─ estatement-to-excel.js  # CLI: transaksi JSON -> file .csv (+ .xlsx bila ada)
-├─ vercel.json        # konfigurasi deploy Vercel (static + serverless)
-├─ .replit            # konfigurasi run/deploy Replit
-├─ replit.nix         # dependensi Nix untuk Replit
-├─ package.json       # metadata + script `start` (static server)
-└─ README.md
+index.html           # seluruh aplikasi (HTML + CSS + JS inline) — di akar repo
+api/
+├─ parse-estatement.js     # Serverless Function (proxy AI; kunci OpenAI di server)
+├─ extract-excel.js        # Serverless Function (ekstraksi e-statement -> 8 kolom + CSV)
+└─ _estatement-columns.js  # skema 8 kolom (urutan tetap) — dipakai extract-excel
+tools/
+├─ estatement-columns.js   # skema 8 kolom (sumber kebenaran, dipakai CLI)
+└─ estatement-to-excel.js  # CLI: transaksi JSON -> file .csv (+ .xlsx bila ada)
+favicon.png, icon-192.png, icon-512.png, apple-touch-icon.png, manifest.webmanifest
+vercel.json          # konfigurasi deploy Vercel (static + serverless)
+.replit              # konfigurasi run/deploy Replit
+replit.nix           # dependensi Nix untuk Replit
+package.json         # metadata + script `start` (static server)
 ```
 
 ## Analisa e-Statement dengan AI (Proxy backend)
@@ -103,38 +101,36 @@ Ekstraksi teks PDF memakai **pdf.js** dan, untuk e-statement hasil scan/foto yan
 **Opsi A — Vercel CLI**
 ```bash
 npm i -g vercel
-cd deploy
-vercel            # ikuti prompt; deploy preview
+vercel            # jalankan dari akar repo; ikuti prompt; deploy preview
 vercel --prod     # deploy ke produksi
 ```
 
 **Opsi B — Dashboard Vercel**
-1. Push folder `deploy/` ke repository Git (GitHub/GitLab/Bitbucket).
+1. Push repo ke Git (GitHub/GitLab/Bitbucket). `index.html` sudah di akar repo.
 2. Di Vercel: **Add New → Project → Import** repo tersebut.
-3. Framework Preset: **Other**. Build Command: kosongkan. Output/Static Directory: `public`.
+3. Framework Preset: **Other**. Build Command: kosongkan. Root Directory: biarkan akar (`./`) — tidak perlu diubah karena `index.html` sudah di akar.
 4. Tambahkan env var `OPENAI_API_KEY` (lihat tabel di atas).
-5. **Deploy**. Vercel menyajikan `public/index.html` sebagai situs statis + menjalankan `api/parse-estatement.js` sebagai Serverless Function di `/api/parse-estatement`.
+5. **Deploy**. Vercel menyajikan `index.html` sebagai situs statis + menjalankan `api/parse-estatement.js` sebagai Serverless Function di `/api/parse-estatement`.
 
 `vercel.json` sudah menyetel `cleanUrls`, header keamanan dasar, dan cache untuk HTML.
 
 ## Deploy ke Replit
 
 **Opsi A — Import**
-1. Di Replit: **Create → Import from GitHub**, pilih repo berisi folder `deploy/` (atau unggah isinya ke root Repl).
-2. Replit membaca `.replit` + `replit.nix`. Klik **Run** → menjalankan `npx serve public`.
-3. Untuk publik: buka tab **Deployments → Static**, set **Public dir = `public`**, lalu **Deploy**.
+1. Di Replit: **Create → Import from GitHub**, pilih repo ini.
+2. Replit membaca `.replit` + `replit.nix`. Klik **Run** → menjalankan `npx serve .`.
+3. Untuk publik: buka tab **Deployments → Static**, set **Public dir = `.`**, lalu **Deploy**.
 
 **Opsi B — Manual**
-- Pastikan `public/index.html` ada, lalu jalankan: `npx --yes serve public -l $PORT`.
+- Pastikan `index.html` ada di akar, lalu jalankan: `npx --yes serve . -l $PORT`.
 
 ## Pengembangan lokal
 
 ```bash
-cd deploy
-npx --yes serve public -l 3000
+npx --yes serve . -l 3000
 # buka http://localhost:3000
 ```
-Atau cukup buka `public/index.html` langsung di browser (file://).
+Atau cukup buka `index.html` langsung di browser (file://).
 
 ## Catatan teknis (hasil audit)
 
