@@ -16,7 +16,7 @@
 
 const { buildSystemPrompt } = require('./_estatement-prompt');
 
-const MAX_CHARS = 16000;       // batasi panjang teks yang dikirim ke model
+const MAX_CHARS = 48000;       // batasi panjang teks yang dikirim ke model
 const RATE_WINDOW_MS = 60_000; // jendela rate-limit per-IP
 const RATE_MAX = 12;           // maksimum request per jendela per-IP
 

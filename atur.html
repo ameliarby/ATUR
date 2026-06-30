@@ -3858,7 +3858,7 @@ async function parseViaProxy(text){
   const resp=await fetch(AI_PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ text:text.slice(0,16000), cats:validCats() })
+    body:JSON.stringify({ text:text.slice(0,48000), cats:validCats() })
   });
   if(resp.status===501){ throw new Error('ai-not-configured'); }
   if(!resp.ok){ throw new Error('proxy-'+resp.status); }
@@ -3877,7 +3877,7 @@ async function parseViaUserKey(text, apiKey){
     body:JSON.stringify({
       model:'gpt-4o-mini', temperature:0,
       response_format:{type:'json_object'},
-      messages:[{role:'system',content:aiSystemPrompt(validCats())},{role:'user',content:text.slice(0,12000)}]
+      messages:[{role:'system',content:aiSystemPrompt(validCats())},{role:'user',content:text.slice(0,48000)}]
     })
   });
   if(!resp.ok) throw new Error('api-'+resp.status);
