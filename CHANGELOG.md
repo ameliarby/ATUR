@@ -5,6 +5,71 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.25] - 2026-07-02
+
+### Diubah
+- **Mode guest: ketuk "Ajak pasangan gabung" kini menampilkan notifikasi yang
+  meminta login Google dulu.** Sebelumnya (v1.11.24) jalur guest langsung
+  menyalin tautan lokal ke clipboard. Kini saat guest mengetuk kartu
+  ajak-pasangan, muncul dialog *"Masuk dulu, yuk"* yang menjelaskan bahwa untuk
+  mengundang pasangan & menyinkronkan data berdua perlu **masuk dengan Google**:
+  - **"Masuk dengan Google"** → memanggil `signInGoogle()` (redirect OAuth) dan
+    menghentikan alur; setelah kembali sebagai cloud, user mengulang aksi undang.
+  - **"Nanti saja"** → tetap menyalin **tautan lokal** ke clipboard sebagai
+    fallback (tanpa buka WhatsApp, tanpa status "Menunggu…"), agar guest tidak
+    terblokir.
+
+### Dipertahankan
+- Perilaku mode **cloud** tidak berubah: `createInvite()` → salin tautan
+  `?join=<code>` ke clipboard + feedback "Tautan tersalin",
+  `syncBerduaRealtime()` terpasang, `APP.inviteSent=true`.
+- Status **"Menunggu…"** tetap hanya untuk mode cloud (aturan v1.11.22).
+- Fallback salin manual (field tap-to-copy) bila Clipboard API gagal (v1.11.24).
+
+## [1.11.24] - 2026-07-02
+
+### Diubah
+- **"Ajak pasangan gabung" kini MENYALIN tautan undangan ke clipboard —
+  tidak lagi membuka WhatsApp.** Sebelumnya, saat user login (cloud) menekan
+  kartu ajak-pasangan, aplikasi memanggil `window.open('https://wa.me/...')`
+  sehingga user keluar dari aplikasi dan harus membuka ulang tautan ATUR.
+  Kini pada kartu ATUR Berdua kondisi *belum terhubung*, sekali ketuk:
+  - **Cloud** → membuat kode undangan **di backend** (`createInvite`, kode
+    tidak ditampilkan), menyusun tautan `?join=<code>`, lalu menyalinnya ke
+    clipboard via `navigator.clipboard.writeText()` dan menampilkan feedback
+    **"Tautan tersalin"** (ikon centang) **tanpa keluar aplikasi**.
+  - **Guest** → menyalin tautan lokal ke clipboard + info singkat *"kamu belum
+    login, tautan ini lokal"* (tetap tanpa membuka WhatsApp).
+- **Ikon WhatsApp dihapus dari kartu ajak-pasangan** (`.duo-ask-wa` / `I.wa`).
+  Kartu kini cukup menampilkan **ikon link** yang bisa diketuk untuk menyalin.
+
+### Ditambahkan
+- **Fallback salin manual bila Clipboard API gagal** (mis. iOS Safari dalam
+  konteks tertentu). `copyInviteLink()` mencoba `navigator.clipboard.writeText`,
+  lalu jatuh ke `execCommand('copy')`; bila keduanya gagal, kartu menampilkan
+  **field tautan yang bisa di-select/tap-to-copy manual** (via
+  `showInviteFeedback()`), bukan gagal diam-diam.
+
+### Dipertahankan
+- Status realtime tetap berjalan: setelah `createInvite()` di jalur cloud,
+  `syncBerduaRealtime()` tetap dipasang dan `APP.inviteSent=true` diset,
+  sehingga kartu berubah otomatis **"Menunggu…" → "Terhubung"** saat pasangan
+  bergabung.
+- Aturan v1.11.22 dipertahankan: status **"Menunggu…"** hanya untuk mode cloud.
+
+## [1.11.23] - 2026-07-01
+
+### Diperbaiki
+- **Notifikasi "Gagal menyiapkan undangan" kini menampilkan penyebab asli**
+  (diagnostik). Sebelumnya pesan generik menyembunyikan sumber masalah saat
+  user login (mode cloud) menekan "Ajak pasangan gabung". Kini `createInvite()`
+  dan `ensureHousehold()` melempar pesan spesifik per-tahap (sesi tidak terbaca,
+  RLS tabel `households`/`household_members`, atau `insert invites` ditolak),
+  dan `sendInviteWA()` menampilkan detail tersebut di dialog + `console.warn`.
+  `ensureHousehold()` kini mengembalikan error insert (bukan diam-diam `null`)
+  sehingga kegagalan RLS/tabel tidak lagi tersamar; pemanggil `migrateLocalToCloud()`
+  dibungkus try/catch agar tidak memicu unhandled rejection.
+
 ## [1.11.22] - 2026-07-01
 
 ### Diperbaiki
@@ -411,3 +476,6 @@ alter table household_members add column if not exists display_name text;
 [1.11.20]: https://github.com/ameliarby/ATUR
 [1.11.21]: https://github.com/ameliarby/ATUR
 [1.11.22]: https://github.com/ameliarby/ATUR
+[1.11.23]: https://github.com/ameliarby/ATUR
+[1.11.24]: https://github.com/ameliarby/ATUR
+[1.11.25]: https://github.com/ameliarby/ATUR

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.22">
+<meta name="app-version" content="1.11.25">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -665,8 +665,10 @@
   .duo-ask-txt{flex:1;min-width:0;}
   .duo-ask-t{font-size:13.5px;font-weight:700;}
   .duo-ask-s{font-size:11px;color:var(--muted);margin-top:2px;}
-  .duo-ask-wa{width:34px;height:34px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
-  .duo-ask-wa svg{width:18px;height:18px;stroke:#fff;}
+  .duo-ask-fb{margin:2px 6px 8px;}
+  .duo-ask-fb-msg{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#15803D;background:#EAF7EE;border:1px solid #C7EAD3;border-radius:11px;padding:9px 11px;}
+  .duo-ask-fb-msg svg{width:14px;height:14px;stroke:#15803D;flex:0 0 auto;}
+  .duo-ask-fb-in{width:100%;box-sizing:border-box;margin-top:6px;font-size:11px;color:#1A1A22;background:#F6F6F8;border:1px solid #E3E3EA;border-radius:9px;padding:8px 10px;}
   .duo-ask-wait{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#B45309;background:#FEF3E2;border:1px solid #FCE0BD;border-radius:11px;padding:9px 11px;margin:4px 6px 6px;}
   .duo-wait-dot{width:8px;height:8px;border-radius:50%;background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.2);flex:0 0 auto;}
   /* settlement summary */
@@ -1954,20 +1956,21 @@ function heroHTML(mode){
 
 function duoLinkCardHTML(){
   if(!berduaConnected){
-    // v1.11.21: kartu "belum terhubung" langsung punya ikon link yang bisa diketuk
-    // untuk kirim undangan via WhatsApp — TANPA membuka landing "Hubungkan via
-    // WhatsApp" lagi. Kode undangan dibuat di backend (createInvite), tidak
-    // ditampilkan. Status "Menunggu…" muncul setelah tautan dikirim.
+    // v1.11.24: kartu "belum terhubung" — ketuk untuk MENYALIN tautan undangan
+    // ke clipboard (TANPA membuka WhatsApp / keluar aplikasi). Kode undangan
+    // dibuat di backend (createInvite), tidak ditampilkan. Ikon link menandakan
+    // aksi salin; setelah tersalin muncul feedback "Tautan tersalin". Status
+    // "Menunggu…" muncul setelah tautan disalin (hanya untuk cloud).
     const waiting = APP.authMode==='cloud' && !!APP.inviteSent;
     return `<div class="card duo-ask">
       <div class="duo-ask-row" data-invite-wa role="button" tabindex="0">
         <span class="duo-ask-ic">${I.link||I.share2}</span>
         <div class="duo-ask-txt">
           <div class="duo-ask-t">Ajak pasangan gabung</div>
-          <div class="duo-ask-s">Kirim tautan undangan — kode dibuat otomatis</div>
+          <div class="duo-ask-s">Ketuk untuk menyalin tautan undangan — kode dibuat otomatis</div>
         </div>
-        <span class="duo-ask-wa">${I.wa}</span>
       </div>
+      <div class="duo-ask-fb" data-invite-fb hidden></div>
       ${waiting?`<div class="duo-ask-wait"><span class="duo-wait-dot"></span> Menunggu pasangan menerima undangan…</div>`:''}
     </div>`;
   }
@@ -1981,12 +1984,41 @@ function duoLinkCardHTML(){
     </div>`;
 }
 
-// Kirim undangan via WhatsApp LANGSUNG dari home (tanpa landing page).
+// v1.11.25: Ajak pasangan gabung → SALIN tautan undangan ke clipboard,
+// TANPA membuka WhatsApp / keluar aplikasi.
 // Cloud → buat kode NYATA di backend (createInvite) + pasang listener real-time
-// pengundang. Guest → tautan lokal + info agar login dulu untuk sinkron.
+// pengundang, lalu salin link ?join=<code> ke clipboard + feedback "Tautan
+// tersalin". Guest → tampilkan notifikasi yang MEMINTA login Google dulu (data
+// baru tersinkron setelah login); bila user memilih tetap tanpa login, tautan
+// lokal disalin sebagai fallback. Nama fungsi dipertahankan agar handler klik
+// tetap valid.
 async function sendInviteWA(trigEl){
   let link, code;
-  if(APP.authMode==='cloud'){
+  // Guest: minta login Google dulu sebelum menyalin/mengirim tautan. Undangan
+  // guest bersifat lokal & tidak tersinkron, jadi arahkan user untuk masuk.
+  if(APP.authMode!=='cloud'){
+    let goLogin=false;
+    try{
+      goLogin = await appDialog({
+        title:'Masuk dulu, yuk',
+        msg:'Untuk mengundang pasangan dan menyinkronkan data berdua, kamu perlu masuk dengan Google dulu. Tanpa login, tautan undangan hanya bersifat lokal dan data belum tersinkron.',
+        okText:'Masuk dengan Google',
+        cancelText:'Nanti saja'
+      });
+    }catch(_){ goLogin=false; }
+    if(goLogin){
+      // Arahkan ke OAuth Google (redirect keluar → kembali sebagai cloud).
+      try{ await signInGoogle(); }
+      catch(e){
+        console.warn('signInGoogle gagal:', e);
+        try{ await appAlert('Gagal membuka login Google. Pastikan tersambung internet lalu coba lagi.','Gagal'); }catch(_){}
+      }
+      return; // hentikan alur; setelah login user mengulang aksi undang.
+    }
+    // User memilih "Nanti saja" → lanjut salin tautan lokal sebagai fallback.
+    code=inviteCode;
+    link=location.origin+location.pathname+'?join='+code;
+  }else{
     if(trigEl){ trigEl.classList.add('busy'); }
     try{
       const inv=await createInvite();
@@ -1995,27 +2027,66 @@ async function sendInviteWA(trigEl){
       if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshDash==='function') refreshDash(); });
     }catch(e){
       if(trigEl){ trigEl.classList.remove('busy'); }
-      try{ await appAlert('Gagal menyiapkan undangan. Pastikan kamu sudah masuk & tersambung internet, lalu coba lagi.'); }catch(_){}
+      // Diagnostik: tampilkan penyebab asli supaya mudah ditelusuri (RLS / tabel /
+      // sesi kedaluwarsa). Pesan Supabase disertakan bila ada.
+      const detail=(e&&(e.message||e.error_description||e.hint||e.details))?String(e.message||e.error_description||e.hint||e.details):'';
+      console.warn('sendInviteWA gagal:', e);
+      try{ await appAlert('Gagal menyiapkan undangan.'+(detail?('\n\nDetail: '+detail):'')+'\n\nCoba keluar lalu masuk lagi, pastikan tersambung internet.','Gagal'); }catch(_){}
       return;
     }
     if(trigEl){ trigEl.classList.remove('busy'); }
-  }else{
-    code=inviteCode;
-    link=location.origin+location.pathname+'?join='+code;
   }
-  const msg=`Yuk catat keuangan bareng di ATUR Berdua! Klik untuk gabung: ${link}`;
-  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  // Salin tautan ke clipboard (dengan fallback bila API gagal) — TIDAK membuka WhatsApp.
+  const fb = trigEl ? trigEl.closest('.duo-ask')?.querySelector('[data-invite-fb]') : null;
+  const copied = await copyInviteLink(link, fb);
   if(APP.authMode==='cloud'){
     // Status "Menunggu…" HANYA untuk mode cloud — di sinilah undangan nyata
     // dibuat & listener real-time menunggu pasangan bergabung.
     APP.inviteSent=true; saveApp();
+    if(fb) showInviteFeedback(fb, copied ? `${I.check} Tautan tersalin` : 'Salin tautan di bawah:', link, !copied);
   }else{
-    // Guest: tautan lokal, tidak ada sinkronisasi. Beri info, lalu kembali ke
-    // mode Berdua TANPA status "Menunggu…" (status hanya berlaku untuk cloud).
+    // Guest (pilih "Nanti saja"): tautan lokal, tidak ada sinkronisasi. TANPA
+    // status "Menunggu…" (status hanya berlaku untuk cloud) & TANPA buka WhatsApp.
     APP.inviteSent=false; saveApp();
-    try{ await appAlert('Kamu belum login, jadi tautan ini bersifat lokal & data belum tersinkron. Masuk dengan Google untuk menautkan akun pasangan.','Belum tersinkron'); }catch(e){}
+    if(fb) showInviteFeedback(fb, copied ? `${I.check} Tautan tersalin — kamu belum login, tautan ini lokal` : 'Kamu belum login (tautan lokal). Salin manual:', link, !copied);
   }
   if(typeof refreshDash==='function') refreshDash();
+}
+
+// Salin teks ke clipboard; kembalikan true bila berhasil lewat Clipboard API,
+// false bila gagal (mis. iOS Safari dalam konteks tertentu) supaya pemanggil
+// dapat menampilkan fallback tap-to-copy.
+async function copyInviteLink(link, fbEl){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(link);
+      return true;
+    }
+  }catch(e){ console.warn('clipboard.writeText gagal:', e); }
+  // Fallback lawas: execCommand('copy') via textarea sementara.
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=link; ta.setAttribute('readonly','');
+    ta.style.position='fixed'; ta.style.top='-9999px';
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, link.length);
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok) return true;
+  }catch(e){ console.warn('execCommand copy gagal:', e); }
+  return false;
+}
+
+// Tampilkan feedback di kartu ajak-pasangan. Bila showField=true, sertakan field
+// tautan yang bisa di-select/tap untuk menyalin manual (fallback clipboard gagal).
+function showInviteFeedback(fbEl, msgHTML, link, showField){
+  if(!fbEl) return;
+  let html=`<div class="duo-ask-fb-msg">${msgHTML}</div>`;
+  if(showField){
+    html+=`<input class="duo-ask-fb-in" type="text" readonly value="${(link||'').replace(/"/g,'&quot;')}" onclick="this.select();try{document.execCommand('copy');}catch(e){}">`;
+  }
+  fbEl.innerHTML=html;
+  fbEl.hidden=false;
 }
 
 function ledgerHTML(){
@@ -3117,7 +3188,7 @@ let inviteCode = 'ATUR-7K9P-LINK';
  * v1.11.0 — SUPABASE: Auth (Stage 1) + Sync/Share Berdua (Stage 2)
  * =================================================================== */
 const SUPABASE_URL  = 'https://xvbknqdlbcqvzvzltllz.supabase.co';
-const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8Ybeu0Va9hFnqn5UWyPT9iAXI';
+const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8YbeQOu0Va9hFnqn5UWyPT9iAXI';
 let sb = null;
 
 function initSupabase(){
@@ -3181,19 +3252,20 @@ async function ensureHousehold(mode){
   const { data:hh, error } = await c.from('households')
     .insert({ name:(APP.name?APP.name+"'s":'Rumah'), mode:mode||'s', created_by:uid })
     .select('id').single();
-  if(error){ console.warn('ensureHousehold insert', error); return null; }
-  await c.from('household_members').insert({ household_id:hh.id, user_id:uid, role:'owner', display_name:(APP.name||'').trim()||null });
+  if(error){ console.warn('ensureHousehold insert households', error); throw new Error('households: '+(error.message||error.code||'ditolak')); }
+  const { error:mErr } = await c.from('household_members').insert({ household_id:hh.id, user_id:uid, role:'owner', display_name:(APP.name||'').trim()||null });
+  if(mErr && mErr.code!=='23505'){ console.warn('ensureHousehold insert members', mErr); throw new Error('household_members: '+(mErr.message||mErr.code||'ditolak')); }
   APP.householdId=hh.id; saveApp();
   return hh.id;
 }
 async function createInvite(){
-  const c=initSupabase(); if(!c) throw new Error('offline');
-  const sess=await currentSession(); if(!sess) throw new Error('login dulu');
+  const c=initSupabase(); if(!c) throw new Error('Supabase tidak siap (cek koneksi/anon key)');
+  const sess=await currentSession(); if(!sess) throw new Error('Sesi tidak terbaca — coba masuk lagi');
   const hid=await ensureHousehold('b');
-  if(!hid) throw new Error('household gagal');
+  if(!hid) throw new Error('Gagal menyiapkan household (kemungkinan RLS tabel households/household_members)');
   const { data, error } = await c.from('invites')
     .insert({ household_id:hid, invited_by:sess.user.id }).select('code').single();
-  if(error) throw error;
+  if(error) throw new Error('Insert invites ditolak: '+(error.message||error.code||'unknown')+(error.hint?(' — '+error.hint):''));
   inviteCode=data.code;
   return { code:data.code, link:location.origin+location.pathname+'?join='+data.code };
 }
@@ -3313,7 +3385,9 @@ function syncBerduaRealtime(onChange){
 }
 async function migrateLocalToCloud(){
   const c=initSupabase(); if(!c||APP.authMode!=='cloud') return;
-  const hid=await ensureHousehold(currentMode==='b'?'b':'s'); if(!hid) return;
+  let hid=null;
+  try{ hid=await ensureHousehold(currentMode==='b'?'b':'s'); }catch(e){ console.warn('migrate ensureHousehold', e); return; }
+  if(!hid) return;
   try{
     let local=[]; try{ local=JSON.parse(localStorage.getItem('atur_manual_txns')||'[]'); }catch(e){}
     for(const t of local){ await pushTxnCloud(t); }
