@@ -5,6 +5,19 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.16] - 2026-07-01
+
+### Diperbaiki
+- **Pasangan tidak lagi melihat "kilasan mode ATUR Sendiri" saat membuka tautan
+  undangan.** Sebelumnya, bila pasangan sudah pernah memakai app (guest yang
+  `profileDone`), `boot()` langsung `mountPhone()` ke Home mode Sendiri dan
+  mengabaikan `?join=` — sehingga pasangan sempat mendarat di ATUR Sendiri dulu
+  sebelum layar isi nama muncul. Kini `boot()` memprioritaskan undangan tertunda:
+  bila ada `?join=` (dari URL / `localStorage` / `APP.pendingJoin`), kode
+  disimpan lalu — untuk sesi cloud langsung menampilkan onboarding varian
+  "join", untuk yang belum login diarahkan ke Welcome (kode join tetap aman &
+  diproses `routeAfterAuth` setelah login) — tanpa pernah merender Home Sendiri.
+
 ## [1.11.15] - 2026-07-01
 
 ### Diperbaiki
@@ -239,3 +252,4 @@ alter table household_members add column if not exists display_name text;
 [1.11.13]: https://github.com/ameliarby/ATUR
 [1.11.14]: https://github.com/ameliarby/ATUR
 [1.11.15]: https://github.com/ameliarby/ATUR
+[1.11.16]: https://github.com/ameliarby/ATUR

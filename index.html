@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.15">
+<meta name="app-version" content="1.11.16">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2959,7 +2959,7 @@ let inviteCode = 'ATUR-7K9P-LINK';
  * v1.11.0 — SUPABASE: Auth (Stage 1) + Sync/Share Berdua (Stage 2)
  * =================================================================== */
 const SUPABASE_URL  = 'https://xvbknqdlbcqvzvzltllz.supabase.co';
-const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8Ybeu0Va9hFnqn5UWyPT9iAXI';
+const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8YbeQOu0Va9hFnqn5UWyPT9iAXI';
 let sb = null;
 
 function initSupabase(){
@@ -7242,6 +7242,21 @@ async function boot(){
     const session = await currentSession();
     if(session){ await routeAfterAuth(session); return; }
   }catch(e){ /* offline / SDK gagal → fallback ke tamu */ }
+  // Ada undangan Berdua tertunda (?join=) TAPI belum punya sesi cloud:
+  // JANGAN render Home Sendiri dulu. Prioritaskan alur join → langsung tampilkan
+  // layar isi nama pasangan (varian "join"). Ini mencegah "kilasan mode Sendiri"
+  // sebelum onboarding pasangan muncul, termasuk untuk guest yang sudah profileDone.
+  let pendingJoin='';
+  try{ pendingJoin=new URLSearchParams(location.search).get('join')||localStorage.getItem('atur_pending_join')||APP.pendingJoin||''; }catch(e){}
+  if(pendingJoin){
+    APP.pendingJoin=pendingJoin; saveApp();
+    try{ localStorage.setItem('atur_pending_join', pendingJoin); }catch(e){}
+    // Belum login → pasangan harus login/daftar dulu agar undangan bisa diproses
+    // di cloud. Arahkan ke Welcome; kode join sudah aman tersimpan & akan diproses
+    // oleh routeAfterAuth setelah login. Bila sudah cloud, tampilkan onboarding join.
+    if(APP.authMode==='cloud'){ mountOnboarding({mode:'join', code:pendingJoin}); return; }
+    mountWelcome(); return;
+  }
   // Belum login: default opening = layar Welcome (login + slide), BUKAN langsung Home.
   // Guest yang sudah pernah menyelesaikan onboarding tetap dibawa ke Home.
   if(APP.authMode==='guest' && APP.profileDone){ mountPhone(); return; }
