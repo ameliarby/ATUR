@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.17">
+<meta name="app-version" content="1.11.22">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -654,6 +654,21 @@
   .duo-empty-t{font-size:15.5px;font-weight:700;}
   .duo-empty-d{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5;}
   .duo-invite-btn{margin-top:16px;border:none;border-radius:13px;padding:13px 22px;background:#C2410C;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:var(--sh-md);}
+  /* v1.11.21: kartu ajak-pasangan ringkas (ikon link tappable, tanpa landing) */
+  .duo-ask{padding:6px;}
+  .duo-ask-row{display:flex;align-items:center;gap:12px;padding:12px 12px;border-radius:13px;cursor:pointer;transition:background .15s;}
+  .duo-ask-row:hover{background:#FFF6F0;}
+  .duo-ask-row:active{background:#FFEEE2;}
+  .duo-ask-row.busy{opacity:.55;pointer-events:none;}
+  .duo-ask-ic{width:38px;height:38px;border-radius:11px;background:#FFF3EC;color:#C2410C;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .duo-ask-ic svg{width:19px;height:19px;}
+  .duo-ask-txt{flex:1;min-width:0;}
+  .duo-ask-t{font-size:13.5px;font-weight:700;}
+  .duo-ask-s{font-size:11px;color:var(--muted);margin-top:2px;}
+  .duo-ask-wa{width:34px;height:34px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .duo-ask-wa svg{width:18px;height:18px;stroke:#fff;}
+  .duo-ask-wait{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#B45309;background:#FEF3E2;border:1px solid #FCE0BD;border-radius:11px;padding:9px 11px;margin:4px 6px 6px;}
+  .duo-wait-dot{width:8px;height:8px;border-radius:50%;background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.2);flex:0 0 auto;}
   /* settlement summary */
   .settle-net{font-size:17px;font-weight:800;margin-top:6px;color:#1A1A22;letter-spacing:-.01em;}
   .settle-net.pos{color:#15803D;} .settle-net.neg{color:#C2410C;}
@@ -1939,11 +1954,21 @@ function heroHTML(mode){
 
 function duoLinkCardHTML(){
   if(!berduaConnected){
-    return `<div class="card duo-empty">
-      <div class="duo-empty-ic">${I.users}</div>
-      <div class="duo-empty-t">Belum terhubung dengan siapa pun</div>
-      <div class="duo-empty-d">Undang pasangan atau teman serumah untuk mulai mencatat pengeluaran bersama & berbagi tagihan secara adil.</div>
-      <button class="duo-invite-btn" data-screen="connect">${I.wa} Hubungkan via WhatsApp</button>
+    // v1.11.21: kartu "belum terhubung" langsung punya ikon link yang bisa diketuk
+    // untuk kirim undangan via WhatsApp — TANPA membuka landing "Hubungkan via
+    // WhatsApp" lagi. Kode undangan dibuat di backend (createInvite), tidak
+    // ditampilkan. Status "Menunggu…" muncul setelah tautan dikirim.
+    const waiting = APP.authMode==='cloud' && !!APP.inviteSent;
+    return `<div class="card duo-ask">
+      <div class="duo-ask-row" data-invite-wa role="button" tabindex="0">
+        <span class="duo-ask-ic">${I.link||I.share2}</span>
+        <div class="duo-ask-txt">
+          <div class="duo-ask-t">Ajak pasangan gabung</div>
+          <div class="duo-ask-s">Kirim tautan undangan — kode dibuat otomatis</div>
+        </div>
+        <span class="duo-ask-wa">${I.wa}</span>
+      </div>
+      ${waiting?`<div class="duo-ask-wait"><span class="duo-wait-dot"></span> Menunggu pasangan menerima undangan…</div>`:''}
     </div>`;
   }
   return `<div class="card duo-link tappable" data-screen="connect">
@@ -1954,6 +1979,43 @@ function duoLinkCardHTML(){
       </div>
       <span class="duo-link-dot"></span>
     </div>`;
+}
+
+// Kirim undangan via WhatsApp LANGSUNG dari home (tanpa landing page).
+// Cloud → buat kode NYATA di backend (createInvite) + pasang listener real-time
+// pengundang. Guest → tautan lokal + info agar login dulu untuk sinkron.
+async function sendInviteWA(trigEl){
+  let link, code;
+  if(APP.authMode==='cloud'){
+    if(trigEl){ trigEl.classList.add('busy'); }
+    try{
+      const inv=await createInvite();
+      code=inv.code; link=inv.link;
+      // Pasang listener real-time pengundang → kartu auto "Menunggu…" → "Terhubung"
+      if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshDash==='function') refreshDash(); });
+    }catch(e){
+      if(trigEl){ trigEl.classList.remove('busy'); }
+      try{ await appAlert('Gagal menyiapkan undangan. Pastikan kamu sudah masuk & tersambung internet, lalu coba lagi.'); }catch(_){}
+      return;
+    }
+    if(trigEl){ trigEl.classList.remove('busy'); }
+  }else{
+    code=inviteCode;
+    link=location.origin+location.pathname+'?join='+code;
+  }
+  const msg=`Yuk catat keuangan bareng di ATUR Berdua! Klik untuk gabung: ${link}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  if(APP.authMode==='cloud'){
+    // Status "Menunggu…" HANYA untuk mode cloud — di sinilah undangan nyata
+    // dibuat & listener real-time menunggu pasangan bergabung.
+    APP.inviteSent=true; saveApp();
+  }else{
+    // Guest: tautan lokal, tidak ada sinkronisasi. Beri info, lalu kembali ke
+    // mode Berdua TANPA status "Menunggu…" (status hanya berlaku untuk cloud).
+    APP.inviteSent=false; saveApp();
+    try{ await appAlert('Kamu belum login, jadi tautan ini bersifat lokal & data belum tersinkron. Masuk dengan Google untuk menautkan akun pasangan.','Belum tersinkron'); }catch(e){}
+  }
+  if(typeof refreshDash==='function') refreshDash();
 }
 
 function ledgerHTML(){
@@ -2453,9 +2515,16 @@ function mountAuthGate(){ mountWelcome(); }
 function mountOnboarding(opts){
   // opts.mode: 'login' (default) | 'join' (pasangan dari undangan WhatsApp)
   // opts.code: kode undangan (mode 'join')
+  // opts.step: 'choose' (pilihan Google / tanpa login) | 'name' (isi nama)
+  //   - Varian 'join' punya 2 tahap: tahap PILIHAN dulu, lalu tahap ISI NAMA.
+  //   - Bila user sudah cloud (mis. baru selesai login Google), langsung ke tahap nama.
   const o = (typeof opts==='object' && opts) ? opts : {};
   const isJoin = o.mode==='join';
   const joinCode = o.code || APP.pendingJoin || '';
+  // Tahap: default varian join → 'choose'; tapi bila sudah cloud, lompat ke 'name'.
+  const step = o.step || (isJoin ? (APP.authMode==='cloud' ? 'name' : 'choose') : 'name');
+  // Halaman PILIHAN varian join (Masuk Google / Gabung tanpa login).
+  if(isJoin && step==='choose'){ mountJoinChoose(joinCode); return; }
   const inviter = (APP.partner||'').trim(); // nama pengundang bila sudah terbaca
   const prefill = ((APP.name||APP.suggestedName||'')).replace(/"/g,'&quot;');
   // Badge konteks di atas judul: undangan (hijau WA) atau email terverifikasi.
@@ -2504,13 +2573,26 @@ function mountOnboarding(opts){
     // lalu masuk langsung ke dashboard ATUR Berdua (bukan Sendiri).
     if(isJoin && joinCode && APP.authMode==='cloud'){
       btn.disabled=true; btn.textContent='Menghubungkan…';
-      let ok=false;
-      try{ await acceptInvite(joinCode); ok=true; }catch(e){}
-      APP.pendingJoin=''; saveApp();
-      try{ localStorage.removeItem('atur_pending_join'); }catch(e){}
+      let ok=false, res=null;
+      try{ res=await acceptInvite(joinCode); ok=true; }catch(e){}
+      APP.pendingJoin='';APP.joinFlow=false; saveApp();
+      try{ localStorage.removeItem('atur_pending_join'); localStorage.removeItem('atur_join_flow'); }catch(e){}
+      // Self-invite (pengundang membuka link sendiri) → cukup masuk dashboard,
+      // tanpa perlakuan "baru gabung sebagai pasangan".
+      if(ok && res && res.self){ mountPhone(); return; }
       if(ok){ enterBerduaAfterJoin(); return; }
       // Gagal accept (mis. kode kedaluwarsa) → tetap masuk, beri tahu singkat.
       try{ appAlert && appAlert('Undangan tidak bisa diproses (mungkin kedaluwarsa). Kamu tetap masuk — minta pasangan kirim ulang undangan.'); }catch(e){}
+      mountPhone(); return;
+    }
+    // Alur pasangan TANPA login (guest): tak bisa tersinkron ke akun pengundang,
+    // tapi tetap masuk ke tampilan ATUR Berdua secara lokal di perangkat ini.
+    if(isJoin){
+      APP.partner=APP.partner||inviter||'Pasangan';
+      APP.berduaSetup=true; berduaConnected=true; currentMode='b';
+      saveApp(); syncNames();
+      try{ appAlert && appAlert('Kamu masuk ATUR Berdua tanpa login, jadi data belum tersinkron dengan '+(inviter||'pengundang')+'. Masuk dengan Google untuk menautkan kedua akun.'); }catch(e){}
+      enterBerduaAfterJoin(); return;
     }
     mountPhone();
   };
@@ -2519,6 +2601,58 @@ function mountOnboarding(opts){
   const gate=document.getElementById('obToGate');
   if(gate) gate.addEventListener('click',mountAuthGate);
   setTimeout(()=>inp&&inp.focus(),100);
+  startLiveClock();
+}
+
+// ----- Halaman PILIHAN varian "join" (pasangan buka undangan WhatsApp) -----
+// Tahap pertama alur join: banner "Kamu diundang", lalu 2 pilihan —
+//   (1) Masuk dengan Google  → tersambung penuh & data tersinkron.
+//   (2) Gabung tanpa login    → lokal saja, lanjut ke tahap isi nama.
+// Keduanya menuju layar ISI NAMA (mode:'join', step:'name'):
+//   - Google: setelah redirect balik, routeAfterAuth membawa ke tahap nama
+//     dengan nama Google ter-prefill (APP.suggestedName).
+//   - Tanpa login: langsung ke tahap nama di perangkat ini.
+function mountJoinChoose(code){
+  const joinCode = code || APP.pendingJoin || '';
+  const inviter = (APP.partner||'').trim();
+  stage.innerHTML=`
+    <div class="device-wrap">
+      <div class="device-tag tag-b" id="deviceTag">● ATUR — Gabung</div>
+      <div class="phone">
+        <div class="screen mode-b" id="screen">
+          <div class="notch"></div>
+          <div class="scroll" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 26px">
+            <img class="wordmark-img" src="${LOGO_SRC}" alt="ATUR" style="height:34px;margin-bottom:8px">
+            <div class="ob-invite">
+              <span class="ob-invite-av">${I.users}</span>
+              <span>Kamu diundang${inviter?` oleh <b>${inviter}</b>`:''} untuk <b>ATUR Berdua</b></span>
+            </div>
+            <div class="ob-hi">Atur keuangan bareng 💚</div>
+            <div class="ob-sub">Masuk dengan Google supaya datamu tersinkron dengan ${inviter||'pasanganmu'}, atau gabung dulu tanpa login.</div>
+            <button id="jcGoogle" class="ob-btn" style="background:#25D366;display:flex;align-items:center;justify-content:center;gap:8px">${I.users} Masuk dengan Google</button>
+            <button id="jcGuest" style="background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px;text-decoration:underline;text-underline-offset:3px">Gabung tanpa login</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  // Simpan kode agar bertahan melewati redirect OAuth Google.
+  if(joinCode){ APP.pendingJoin=joinCode; saveApp(); try{ localStorage.setItem('atur_pending_join', joinCode); }catch(e){} }
+  const gBtn=document.getElementById('jcGoogle');
+  gBtn.addEventListener('click',async()=>{
+    gBtn.disabled=true; gBtn.textContent='Membuka Google…';
+    // Tandai bahwa login Google ini bagian dari alur undangan, supaya setelah
+    // redirect balik routeAfterAuth membawa ke varian join (bukan login biasa).
+    APP.joinFlow=true; saveApp();
+    try{ localStorage.setItem('atur_join_flow','1'); }catch(e){}
+    try{ await signInGoogle(); }
+    catch(e){ gBtn.disabled=false; gBtn.innerHTML=`${I.users} Masuk dengan Google`;
+      APP.joinFlow=false; saveApp(); try{ localStorage.removeItem('atur_join_flow'); }catch(_){}
+      try{ appAlert && appAlert('Gagal membuka login Google. Coba lagi atau pilih "Gabung tanpa login".'); }catch(_){}
+    }
+  });
+  document.getElementById('jcGuest').addEventListener('click',()=>{
+    mountOnboarding({mode:'join', code:joinCode, step:'name'});
+  });
   startLiveClock();
 }
 
@@ -2556,61 +2690,85 @@ function scrAiKey(){
   </div>`;
 }
 
-// ----- Reset semua data & keluar -----
-async function doResetApp(){
-  if(!(await appDialog({title:'Reset data & keluar?',msg:'Semua transaksi, nama, dan pengaturan di perangkat ini akan dihapus. Aplikasi kembali ke layar awal.',okText:'Reset',cancelText:'Batal',danger:true}))) return;
-  try{ if(APP.householdId) await leaveHousehold(); }catch(e){}
+// ----- (v1.11.20) Reset data & Log out DIPISAH -----
+// Sebelumnya hanya ada satu aksi "Reset Data & Keluar" (doResetApp) yang sekaligus
+// menghapus SEMUA data lokal + signOut. Kini dipisah:
+//   • doLogout()      → hanya keluar dari sesi (signOut). Data cloud TETAP ada,
+//                        login ulang memulihkan data. Data lokal TIDAK dihapus.
+//   • doResetData()   → tampilkan pilihan cakupan: Reset Sendiri / Reset Berdua.
+//   • resetSendiri()  → hapus data mode Sendiri saja (transaksi, pagu, aset).
+//   • resetBerdua()   → hapus data mode Berdua saja (+ keluar household bila cloud).
+
+// Keluar dari sesi tanpa menghapus data (cloud tetap tersimpan).
+async function doLogout(){
+  const isCloud = APP.authMode==='cloud';
+  const msg = isCloud
+    ? 'Kamu akan keluar dari sesi ini. Data yang tersimpan di cloud TIDAK dihapus — login kembali dengan akun yang sama untuk memulihkannya.'
+    : 'Kamu akan kembali ke layar awal. Data di perangkat ini TIDAK dihapus dan tetap tersedia saat kamu masuk lagi.';
+  if(!(await appDialog({title:'Keluar dari akun?',msg,okText:'Keluar',cancelText:'Batal'}))) return;
   try{ await signOut(); }catch(e){}
-  try{ localStorage.removeItem('atur_manual_txns'); localStorage.removeItem('atur_household_txns'); localStorage.removeItem('atur_app'); localStorage.removeItem('atur_pic'); localStorage.removeItem('atur_budget_caps'); localStorage.removeItem('atur_hh_budget_caps'); }catch(e){}
-  manualTxns.length=0; householdTxns.length=0;
-  assetsSendiri.length=0; assetsBerdua.length=0;
-  APP=Object.assign({},APP_DEFAULT); saveApp(); syncNames();
-  berduaConnected=false; currentMode='s';
+  // Bersihkan hanya state sesi/lokal di perangkat ini; data cloud tetap utuh.
+  APP.authMode='guest'; APP.email=''; APP.householdId=''; APP.profileDone=false;
+  APP.joinFlow=false; APP.pendingJoin='';
+  try{ localStorage.removeItem('atur_pending_join'); localStorage.removeItem('atur_join_flow'); }catch(e){}
+  berduaConnected=false; currentMode='s'; saveApp(); syncNames();
   screenStack.length=0;
   mountWelcome();
 }
 
-// ----- Lock overlay Atur Berdua -----
-function openBerduaLock(){
-  const old=document.getElementById('berduaLock'); if(old) old.remove();
-  const ov=document.createElement('div');
-  ov.id='berduaLock'; ov.className='bd-scrim';
-  ov.innerHTML=`<div class="bd-card">
-    <div class="bd-ic">${I.lock}</div>
-    <div class="bd-t">Atur Berdua terkunci</div>
-    <div class="bd-d">Hubungkan dengan pasanganmu untuk mencatat pengeluaran bersama secara transparan.</div>
-    <input id="bd-partner" class="fld-inp" type="text" placeholder="Nama pasangan" maxlength="24" autocomplete="off">
-    <button id="bd-connect" class="ob-btn" style="margin-top:12px">${I.users} Konfirmasi Nama Pasangan</button>
-    <button id="bd-share" class="bd-share">${I.share2} Ajak gabung pasanganmu</button>
-    <button id="bd-skip" class="bd-skip">Lewati untuk sekarang</button>
-  </div>`;
-  // Lampirkan ke dalam layar HP (.screen), bukan ke body — agar scrim + blur
-  // tetap berada di dalam bingkai handphone dan ikut terpotong sudut membulatnya.
-  const host=document.querySelector('.phone .screen')||document.body;
-  host.appendChild(ov);
-  requestAnimationFrame(()=>ov.classList.add('show'));
-  const close=()=>{ ov.classList.remove('show'); setTimeout(()=>ov.remove(),240); };
-  const finish=(partner)=>{
-    APP.partner=partner||APP.partner||''; APP.berduaSetup=true; saveApp();
-    berduaConnected=true; syncNames();
-    close(); setMode('b');
-  };
-  ov.querySelector('#bd-connect').addEventListener('click',()=>{
-    const v=(ov.querySelector('#bd-partner').value||'').trim();
-    if(!v){ const i=ov.querySelector('#bd-partner'); i.classList.add('shake'); setTimeout(()=>i.classList.remove('shake'),400); i.focus(); return; }
-    finish(v);
-  });
-  ov.querySelector('#bd-share').addEventListener('click',async()=>{
-    const link=location.origin+location.pathname+'?join='+inviteCode;
-    try{ if(navigator.share){ await navigator.share({title:'ATUR Berdua',text:'Yuk atur keuangan bareng di ATUR',url:link}); } else { await appAlert('Bagikan tautan ini ke pasanganmu:\n'+link,'Tautan undangan'); } }
-    catch(e){}
-  });
-  ov.querySelector('#bd-skip').addEventListener('click',()=>{
-    const v=(ov.querySelector('#bd-partner').value||'').trim();
-    finish(v||'Pasangan');
-  });
-  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+// Pilih cakupan reset: Sendiri atau Berdua (dialog 2 opsi + batal).
+function doResetData(){
+  const scrim=document.getElementById('dlgScrim');
+  const tEl=document.getElementById('dlgTitle');
+  const mEl=document.getElementById('dlgMsg');
+  const aEl=document.getElementById('dlgActions');
+  if(!scrim){ return; }
+  tEl.textContent='Reset data yang mana?';
+  mEl.textContent='Pilih data yang ingin dihapus permanen dari perangkat ini. Tindakan ini tidak bisa dibatalkan.';
+  mEl.style.display='block';
+  aEl.innerHTML='';
+  const close=()=>{ scrim.classList.remove('show'); setTimeout(()=>{ aEl.innerHTML=''; },240); };
+  const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className=cls; b.textContent=label; b.addEventListener('click',()=>{ close(); setTimeout(fn,260); }); return b; };
+  aEl.appendChild(mk('Reset data Sendiri','dlg-ok danger', ()=>resetSendiri()));
+  aEl.appendChild(mk('Reset data Berdua','dlg-ok danger', ()=>resetBerdua()));
+  aEl.appendChild(mk('Batal','dlg-cancel', ()=>{}));
+  scrim.onclick=(e)=>{ if(e.target===scrim) close(); };
+  requestAnimationFrame(()=>scrim.classList.add('show'));
 }
+
+// Hapus data mode Sendiri saja.
+async function resetSendiri(){
+  if(!(await appDialog({title:'Reset data Sendiri?',msg:'Semua transaksi, anggaran, dan aset di mode ATUR Sendiri akan dihapus dari perangkat ini. Data Berdua tidak terpengaruh.',okText:'Reset Sendiri',cancelText:'Batal',danger:true}))) return;
+  try{ localStorage.removeItem('atur_manual_txns'); localStorage.removeItem('atur_budget_caps'); }catch(e){}
+  manualTxns.length=0; assetsSendiri.length=0;
+  try{ loadBudgetCaps(); }catch(e){}
+  invalidateDerive && invalidateDerive();
+  currentMode='s'; swapProjStore('s'); saveApp();
+  screenStack.length=0; mountPhone && mountPhone();
+  try{ appAlert('Data ATUR Sendiri sudah direset.','Selesai'); }catch(e){}
+}
+
+// Hapus data mode Berdua saja (dan keluar household bila tersambung cloud).
+async function resetBerdua(){
+  if(!(await appDialog({title:'Reset data Berdua?',msg:'Semua transaksi, anggaran, pembagian tugas, dan aset di mode ATUR Berdua akan dihapus dari perangkat ini. Bila kamu tersambung dengan pasangan, koneksi juga diputus. Data Sendiri tidak terpengaruh.',okText:'Reset Berdua',cancelText:'Batal',danger:true}))) return;
+  try{ if(APP.householdId) await leaveHousehold(); }catch(e){ berduaConnected=false; }
+  try{ localStorage.removeItem('atur_household_txns'); localStorage.removeItem('atur_hh_budget_caps'); localStorage.removeItem('atur_pic'); }catch(e){}
+  householdTxns.length=0; assetsBerdua.length=0;
+  APP.partner=''; APP.berduaSetup=false; berduaConnected=false;
+  try{ loadBudgetCaps(); }catch(e){}
+  invalidateDerive && invalidateDerive();
+  currentMode='s'; swapProjStore('s'); saveApp(); syncNames();
+  screenStack.length=0; mountPhone && mountPhone();
+  try{ appAlert('Data ATUR Berdua sudah direset.','Selesai'); }catch(e){}
+}
+
+// ----- (v1.11.20) Lock overlay Atur Berdua DIHAPUS -----
+// Sebelumnya `openBerduaLock()` menampilkan overlay berisi input "Nama pasangan"
+// + tombol "Konfirmasi Nama Pasangan" sebagai gerbang saat user berpindah dari
+// ATUR Sendiri ke ATUR Berdua. Alur ini dihapus: masuk Berdua kini langsung ke
+// dashboard, dan bila belum terhubung dashboard menampilkan kartu ajak-pasangan
+// (Hubungkan via WhatsApp). Nama pasangan tidak lagi diminta di sisi pengundang —
+// nama pasangan datang otomatis saat pasangan bergabung (fetchPartnerName / realtime).
 
 /* ===== detail-screen data ===== */
 const sources5 = ['BCA','Mandiri','GoPay','OVO','Bibit'];
@@ -2938,7 +3096,7 @@ function txnPic(t){
 // Nama user & pasangan, status onboarding, koneksi Berdua, dan API key AI
 // semuanya tersimpan di localStorage. Default: nama kosong, belum onboarding,
 // Berdua terkunci sampai user mengisi/melewati.
-const APP_DEFAULT = { name:'', partner:'', onboarded:false, berduaSetup:false, aiKey:'', introSeen:false, authMode:'guest', email:'', phone:'', householdId:'', profileDone:false, pendingJoin:'' };
+const APP_DEFAULT = { name:'', partner:'', onboarded:false, berduaSetup:false, aiKey:'', introSeen:false, authMode:'guest', email:'', phone:'', householdId:'', profileDone:false, pendingJoin:'', joinFlow:false, inviteSent:false };
 let APP = (function loadApp(){
   try{ return Object.assign({}, APP_DEFAULT, JSON.parse(localStorage.getItem('atur_app')||'{}')); }
   catch(e){ return Object.assign({}, APP_DEFAULT); }
@@ -2959,7 +3117,7 @@ let inviteCode = 'ATUR-7K9P-LINK';
  * v1.11.0 — SUPABASE: Auth (Stage 1) + Sync/Share Berdua (Stage 2)
  * =================================================================== */
 const SUPABASE_URL  = 'https://xvbknqdlbcqvzvzltllz.supabase.co';
-const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8Ybeu0Va9hFnqn5UWyPT9iAXI';
+const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8YbeQOu0Va9hFnqn5UWyPT9iAXI';
 let sb = null;
 
 function initSupabase(){
@@ -3043,8 +3201,16 @@ async function acceptInvite(code){
   const c=initSupabase(); if(!c) throw new Error('offline');
   const sess=await currentSession(); if(!sess) throw new Error('login dulu');
   const uid=sess.user.id;
-  const { data:inv, error:e1 } = await c.from('invites').select('household_id,expires_at').eq('code',code).single();
+  const { data:inv, error:e1 } = await c.from('invites').select('household_id,expires_at,invited_by').eq('code',code).single();
   if(e1||!inv) throw new Error('kode tidak valid');
+  // Self-invite: pembuka link adalah PENGUNDANG sendiri (pembuat undangan atau
+  // sudah pemilik household yang sama). Jangan proses accept — cukup pastikan
+  // household tercatat & kembalikan penanda khusus supaya caller membawa ke
+  // dashboard-nya sendiri (bukan alur "gabung sebagai pasangan").
+  if(inv.invited_by===uid || (APP.householdId && APP.householdId===inv.household_id)){
+    APP.householdId=inv.household_id; saveApp();
+    return { self:true, householdId:inv.household_id };
+  }
   if(new Date(inv.expires_at) < new Date()) throw new Error('undangan kedaluwarsa');
   const myNm=(APP.name||'').trim()||null;
   const { error:e2 } = await c.from('household_members')
@@ -3059,7 +3225,7 @@ async function acceptInvite(code){
   // Ambil nama PENGUNDANG (anggota lain di household ini) → tampil di greeting Berdua.
   try{ const nm=await fetchPartnerName(inv.household_id, uid); if(nm) APP.partner=nm; }catch(_){}
   saveApp(); syncNames();
-  return inv.household_id;
+  return { self:false, householdId:inv.household_id };
 }
 // Baca display_name anggota household SELAIN diri sendiri (untuk sync nama pasangan
 // dua arah). Fallback null bila belum ada / kolom kosong. Aman bila offline.
@@ -3093,7 +3259,7 @@ async function leaveHousehold(){
   //    currentMode TIDAK diubah di sini — penentuan mode diserahkan ke pemanggil:
   //    - putus dari kartu Home Berdua → tetap mode 'b' (tampil kartu "hubungkan").
   //    - putus dari halaman Hubungkan WA → pemanggil set 's' (kembali ke Sendiri).
-  APP.householdId=''; berduaConnected=false;
+  APP.householdId=''; berduaConnected=false; APP.inviteSent=false;
   saveApp(); syncNames();
 }
 async function pushTxnCloud(t){
@@ -3136,7 +3302,7 @@ function syncBerduaRealtime(onChange){
             const sess=await currentSession(); if(!sess) return;
             const nm=await fetchPartnerName(APP.householdId, sess.user.id);
             if(nm && nm!==APP.partner){
-              APP.partner=nm; berduaConnected=true; saveApp(); syncNames();
+              APP.partner=nm; berduaConnected=true; APP.inviteSent=false; saveApp(); syncNames();
               if(typeof setGreeting==='function') setGreeting();
               if(typeof refreshDash==='function') refreshDash();
             }
@@ -3984,8 +4150,10 @@ function scrProfile(){
     <div class="set-group">
       <div class="set-row" data-go="budget"><div class="set-ic">${I.wealth}</div><div class="set-lbl">Anggaran & Alert</div><span class="set-val">6 kategori</span>${I.chev}</div>
     </div>
+    <div class="grp-label">Data & Akun</div>
     <div class="set-group">
-      <div class="set-row" data-go="reset" style="color:#C2410C"><div class="set-ic" style="color:#C2410C">${I.logout}</div><div class="set-lbl">Reset Data & Keluar</div></div>
+      <div class="set-row" data-go="resetData" style="color:#C2410C"><div class="set-ic" style="color:#C2410C">${I.trash||I.logout}</div><div class="set-lbl">Reset Data</div><span class="set-val">Sendiri / Berdua</span>${I.chev}</div>
+      <div class="set-row" data-go="logout"><div class="set-ic">${I.logout}</div><div class="set-lbl">Keluar (Log out)</div><span class="set-val">${APP.authMode==='cloud'?'Data cloud tetap tersimpan':'Kembali ke layar awal'}</span></div>
     </div>
   </div>`;
 }
@@ -6219,7 +6387,8 @@ function renderTop(animateIn){
     else if(g==='sources') navTo(scrSources());
     else if(g==='invite') navTo(scrInvite());
     else if(g==='editname') navTo(scrEditName());
-    else if(g==='reset') doResetApp();
+    else if(g==='resetData') doResetData();
+    else if(g==='logout') doLogout();
   }));
   // ----- Edit Profil: simpan nama & nama pasangan -----
   const enSave=sub.querySelector('#en-save');
@@ -6410,6 +6579,9 @@ function renderTop(animateIn){
     if(APP.authMode==='cloud'){
       try{ const inv=await createInvite(); link=inv.link;
         const ce=sub.querySelector('#inviteCode'); if(ce) ce.textContent=inv.code;
+        // v1.11.20 (poin ⚠️): pasang listener real-time pengundang → kartu
+        // auto "Menunggu…" → "Terhubung" saat pasangan gabung.
+        if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshDash==='function') refreshDash(); });
       }catch(e){ /* fallback link demo */ }
     }
     try{ await navigator.clipboard.writeText(link); }catch(e){}
@@ -6451,6 +6623,12 @@ function renderTop(animateIn){
           const inv=await createInvite();
           code=inv.code; link=inv.link;
           const cb=sub.querySelector('#waCode'); if(cb) cb.textContent=code;
+          // v1.11.20 (poin ⚠️): pasang listener real-time untuk PENGUNDANG.
+          // Begitu pasangan menerima undangan (menulis baris household_members),
+          // listener menyegarkan APP.partner + berduaConnected + dashboard, sehingga
+          // kartu berubah otomatis "Menunggu…" → "Terhubung dengan <pasangan>" tanpa
+          // perlu refresh manual.
+          if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshDash==='function') refreshDash(); });
         }catch(e){
           waConnectBtn.disabled=false; waConnectBtn.innerHTML=orig;
           appAlert('Gagal menyiapkan undangan. Pastikan kamu sudah masuk & tersambung internet, lalu coba lagi.');
@@ -6732,6 +6910,9 @@ function bindCards(){
       else if(s==='sources') openScreen(scrSources());
     });
   });
+  document.querySelectorAll('.scroll [data-invite-wa]').forEach(el=>{
+    el.addEventListener('click',()=>sendInviteWA(el));
+  });
   document.querySelectorAll('.scroll [data-goal]').forEach(el=>{
     el.addEventListener('click',()=>openScreen(scrGoal(+el.dataset.goal)));
   });
@@ -6868,8 +7049,10 @@ function refreshTag(){
 
 function setMode(mode){
   if(mode===currentMode) return;
-  // Atur Berdua terkunci sampai user mengisi/melewati setup pasangan.
-  if(mode==='b' && !APP.berduaSetup){ openBerduaLock(); return; }
+  // v1.11.20: masuk ATUR Berdua tidak lagi lewat gerbang input nama pasangan.
+  // User langsung masuk dashboard Berdua; bila belum terhubung, dashboard
+  // menampilkan kartu ajak-pasangan (Hubungkan via WhatsApp) — bukan form nama.
+  if(mode==='b' && !APP.berduaSetup){ APP.berduaSetup=true; saveApp(); }
   currentMode=mode;
   swapProjStore(mode); // tukar goals/scheduledCosts/fixed* agar terpisah per mode
   const screen=document.getElementById('screen');
@@ -7173,8 +7356,14 @@ async function routeAfterAuth(session){
   // urlJoin sebelumnya (artinya user datang dari undangan & baru login).
   let joinCode = urlJoin;
   if(!joinCode){ try{ joinCode=localStorage.getItem('atur_pending_join')||APP.pendingJoin||''; }catch(e){} }
-  // Tampilan join hanya bila undangan datang dari URL pada kunjungan ini.
-  const showJoinUI = !!urlJoin;
+  // Flag alur undangan (di-set saat pasangan menekan "Masuk dengan Google" di
+  // halaman "Kamu diundang"). Setelah OAuth redirect balik, ?join= sudah hilang
+  // dari URL, jadi tampilan join dikenali lewat flag ini + pendingJoin.
+  let joinFlow=false;
+  try{ joinFlow = APP.joinFlow || localStorage.getItem('atur_join_flow')==='1'; }catch(e){ joinFlow=!!APP.joinFlow; }
+  // Tampilan join: undangan dari URL kunjungan ini, ATAU kembali dari Google
+  // dalam alur undangan (joinFlow) dengan kode masih tersimpan.
+  const showJoinUI = !!urlJoin || (joinFlow && !!joinCode);
   let joined=false;
   if(urlJoin){
     // Simpan agar tetap ada bila user baru harus isi nama dulu sebelum accept selesai.
@@ -7186,16 +7375,24 @@ async function routeAfterAuth(session){
   // === Requirement A & B: user login BARU (belum punya nama) → SELALU isi nama dulu. ===
   const isNewProfile = !((APP.name||'').trim());
   if(isNewProfile || !APP.profileDone){
-    // Varian "join" HANYA jika undangan datang dari URL; selain itu varian login biasa.
-    mountOnboarding(showJoinUI ? {mode:'join', code:urlJoin} : {mode:'login'});
+    // Varian "join": undangan dari URL, atau kembali dari Google dalam alur undangan.
+    // Selain itu → varian login biasa. Bersihkan flag joinFlow setelah dipakai.
+    if(showJoinUI){ APP.joinFlow=false; saveApp(); try{ localStorage.removeItem('atur_join_flow'); }catch(e){} }
+    mountOnboarding(showJoinUI ? {mode:'join', code:joinCode, step:'name'} : {mode:'login'});
     return;
   }
-  // Profil sudah lengkap & ada undangan (URL/pending) → proses accept lalu ke Berdua.
-  if(joinCode){
-    try{ await acceptInvite(joinCode); joined=true; }catch(e){}
-    APP.pendingJoin=''; saveApp();
-    try{ localStorage.removeItem('atur_pending_join'); }catch(e){}
-    if(joined){ enterBerduaAfterJoin(); return; }
+  // Profil sudah lengkap & memang datang dari undangan (URL / alur Google join)
+  // → proses accept lalu masuk Berdua. Login biasa tak boleh ikut ke sini.
+  if(joinCode && showJoinUI){
+    let res=null;
+    try{ res=await acceptInvite(joinCode); joined=true; }catch(e){}
+    APP.pendingJoin=''; APP.joinFlow=false; saveApp();
+    try{ localStorage.removeItem('atur_pending_join'); localStorage.removeItem('atur_join_flow'); }catch(e){}
+    // Self-invite (pengundang buka link-nya sendiri) → JANGAN masuk sebagai
+    // "pasangan yang baru gabung". Lanjut ke penanganan pengundang di bawah,
+    // yang akan menarik nama pasangan (bila sudah gabung) lalu ke dashboard.
+    if(joined && res && res.self){ /* jatuh ke blok pengundang */ }
+    else if(joined){ enterBerduaAfterJoin(); return; }
   }
   // Pengundang (sudah punya household): pastikan display_name-nya tercatat &
   // tarik nama pasangan bila sudah bergabung, supaya greeting Berdua benar.
@@ -7260,11 +7457,11 @@ async function boot(){
   if(urlJoin){
     APP.pendingJoin=urlJoin; saveApp();
     try{ localStorage.setItem('atur_pending_join', urlJoin); }catch(e){}
-    // Sudah cloud → langsung onboarding varian join. Belum login → Welcome untuk
-    // login/daftar dulu (kode aman tersimpan, diproses routeAfterAuth setelah login),
-    // tanpa pernah merender Home Sendiri lebih dulu.
-    if(APP.authMode==='cloud'){ mountOnboarding({mode:'join', code:urlJoin}); return; }
-    mountWelcome(); return;
+    // Pasangan yang buka undangan → SELALU tampilkan halaman "Kamu diundang"
+    // (varian join) lebih dulu, TANPA pernah merender Welcome/Home Sendiri.
+    //  - Sudah cloud → mountOnboarding langsung ke tahap isi nama.
+    //  - Belum login → mountOnboarding tahap PILIHAN (Masuk Google / tanpa login).
+    mountOnboarding({mode:'join', code:urlJoin}); return;
   }
   // Belum login: default opening = layar Welcome (login + slide), BUKAN langsung Home.
   // Guest yang sudah pernah menyelesaikan onboarding tetap dibawa ke Home.
