@@ -5,6 +5,66 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.14] - 2026-07-01
+
+### Ditambahkan
+- **Alur nama pasca-login (Google & Email) kini konsisten.** Setiap user yang
+  baru login lewat Google / magic-link email dan belum punya nama akan
+  **selalu** diarahkan ke layar isi nama (personalisasi) dulu, baru masuk Home
+  — meski flag `profileDone` sempat aktif dari sesi lama. Layar onboarding
+  memakai **logo & style aplikasi ATUR** dan menampilkan badge konteks
+  "Email/Akun terverifikasi · <email>".
+- **Onboarding pasangan (varian "join") untuk ATUR Berdua.** Saat pasangan
+  membuka tautan undangan WhatsApp, muncul layar isi nama khusus berlogo ATUR
+  dengan banner hijau "Kamu diundang oleh <pengundang> untuk ATUR Berdua"
+  (tanpa slogan di bawah), tombol "Gabung ATUR Berdua". Setelah isi nama,
+  pasangan **langsung mendarat di dashboard ATUR Berdua (bukan Sendiri)**.
+- **Pending join yang bertahan melewati login.** Kode `?join=` disimpan ke
+  `localStorage` (`atur_pending_join`) + `APP.pendingJoin` sejak `boot()`
+  sehingga tidak hilang saat redirect OAuth Google / buka magic-link email.
+- **Sinkronisasi nama dua arah (seamless).** Tabel `household_members`
+  memakai kolom baru `display_name`: pengundang & pasangan masing-masing
+  menyimpan namanya di baris miliknya. `acceptInvite` menulis nama pasangan +
+  membaca nama pengundang (helper `fetchPartnerName`) → greeting Berdua dari
+  POV pasangan langsung tampil "<pasangan> & <pengundang>". `syncBerduaRealtime`
+  kini juga memantau tabel `household_members` sehingga begitu pasangan gabung,
+  greeting sisi pengundang tersegar real-time tanpa refresh.
+
+### Diubah
+- `mountOnboarding()` menerima argumen konteks `{mode:'login'|'join', code}`.
+  Pemanggil lama tanpa argumen tetap kompatibel (default varian "login").
+- `ensureHousehold` & `acceptInvite` menuliskan `display_name` pemilik/pasangan.
+
+### Catatan deploy (WAJIB — perubahan Supabase)
+Jalankan SQL berikut sekali di **Supabase → SQL Editor** agar sinkron nama
+berfungsi (lihat catatan di bawah changelog untuk versi lengkap + policy):
+
+```sql
+alter table household_members add column if not exists display_name text;
+```
+
+## [1.11.13] - 2026-07-01
+
+### Diperbaiki
+- **Keterangan slide di layar Welcome tidak lagi terpotong** oleh bullet
+  slide (`.wel-dots`) / kartu login di bawahnya pada iPhone layar sedang.
+  - `.wel-slide` kini `overflow:hidden` + `padding-bottom` fluid, dan
+    `.wel-cap` diberi `flex:none` sehingga baris kedua deskripsi selalu utuh.
+  - `.intro-ui` (mockup) diubah jadi `flex:0 1 auto` + `min-height:0` supaya
+    **mockup yang menyusut lebih dulu** saat ruang kurang, bukan teksnya.
+  - `.wel-view` diberi `padding-bottom` sebagai buffer ke bullet slide.
+  - Ditambah media query `max-height:820px` untuk mengecilkan mockup di iPhone
+    layar sedang (melengkapi breakpoint 720px & 640px yang sudah ada).
+- **Alur "Hubungkan via WhatsApp" (ATUR Berdua) kini end-to-end nyata saat
+  login.** Tombol "Kirim undangan WhatsApp" sebelumnya hanya membuka chat
+  WhatsApp dengan kode demo statis (`ATUR-7K9P-LINK`) tanpa membuat
+  undangan/household di Supabase — sehingga pasangan tak pernah benar-benar
+  tersambung. Sekarang: bila `authMode==='cloud'`, tombol memanggil
+  `createInvite()` (yang juga `ensureHousehold('b')`) untuk membuat kode +
+  tautan `?join=` NYATA sebelum share; bila guest, memakai tautan lokal dan
+  memberi tahu agar login dulu. Gagal buat undangan → pesan jelas, tombol
+  di-reset (tidak nyangkut di "terkirim").
+
 ## [1.11.12] - 2026-07-01
 
 ### Diperbaiki
@@ -163,3 +223,5 @@ dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 [1.11.10]: https://github.com/ameliarby/ATUR
 [1.11.11]: https://github.com/ameliarby/ATUR
 [1.11.12]: https://github.com/ameliarby/ATUR
+[1.11.13]: https://github.com/ameliarby/ATUR
+[1.11.14]: https://github.com/ameliarby/ATUR

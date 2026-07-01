@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.12">
+<meta name="app-version" content="1.11.14">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1235,6 +1235,13 @@
 
   /* ===== Turn 24: onboarding ===== */
   .ob-hi{font-size:23px;font-weight:800;color:var(--ink);margin-top:6px;letter-spacing:-.02em;}
+  /* Badge konteks onboarding (v1.11.14) */
+  .ob-verified{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803D;background:#E7F8EF;border:1px solid #C6EFD6;border-radius:999px;padding:6px 12px;margin:2px 0 12px;max-width:280px;line-height:1.3;}
+  .ob-verified svg{width:13px;height:13px;stroke:#15803D;flex:none;}
+  .ob-invite{display:flex;align-items:center;gap:9px;text-align:left;font-size:12.5px;font-weight:600;color:#0F5132;line-height:1.4;background:linear-gradient(160deg,#E9FBF0,#D8F6E4);border:1px solid #B8E6CC;border-radius:14px;padding:11px 13px;margin:2px 0 14px;max-width:300px;}
+  .ob-invite b{font-weight:800;color:#0B3D28;}
+  .ob-invite-av{width:30px;height:30px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;flex:none;}
+  .ob-invite-av svg{width:16px;height:16px;stroke:#fff;}
   .ob-sub{font-size:13px;color:var(--muted);line-height:1.55;margin:10px 0 22px;max-width:280px;}
   .ob-input{width:100%;border:1.5px solid #E3E1EE;border-radius:14px;padding:15px 16px;font-family:inherit;font-size:15px;font-weight:600;color:var(--ink);background:#fff;outline:none;text-align:center;transition:border-color .15s,box-shadow .15s;}
   .ob-input:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.12);}
@@ -1259,14 +1266,14 @@
   .wel-hi{font-size:clamp(18px,2.6vh,21px);font-weight:800;letter-spacing:-.01em;margin-top:clamp(8px,1.6vh,14px);}
   .wel-hi span{background:linear-gradient(90deg,#7FAEFF,#C9B6FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
   /* slide viewport */
-  .wel-view{position:relative;z-index:11;flex:1;min-height:0;overflow:hidden;margin-top:clamp(8px,1.8vh,14px);padding-top:12px;display:flex;}
+  .wel-view{position:relative;z-index:11;flex:1;min-height:0;overflow:hidden;margin-top:clamp(8px,1.8vh,14px);padding-top:12px;padding-bottom:clamp(6px,1.4vh,12px);display:flex;}
   .wel-track{display:flex;height:100%;width:100%;transition:transform .5s cubic-bezier(.22,.9,.24,1);}
-  .wel-slide{min-width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2px 26px 4px;color:#fff;overflow:visible;gap:clamp(8px,1.8vh,14px);}
-  .wel-cap{margin-top:0;}
+  .wel-slide{min-width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2px 26px clamp(8px,1.6vh,14px);color:#fff;overflow:hidden;gap:clamp(8px,1.8vh,14px);}
+  .wel-cap{margin-top:0;flex:none;}
   .wel-t{font-size:17px;font-weight:800;line-height:1.25;letter-spacing:-.01em;}
   .wel-d{font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.68);max-width:250px;margin:6px auto 0;font-weight:500;}
   /* ---- mockup mini dinamis ---- */
-  .intro-ui{width:clamp(150px,44vw,190px);height:clamp(176px,26vh,224px);max-height:100%;aspect-ratio:190/224;background:#EFEFF6;border-radius:24px;padding:13px 12px;text-align:left;position:relative;flex:none;
+  .intro-ui{width:clamp(150px,44vw,190px);height:clamp(176px,26vh,224px);max-height:100%;aspect-ratio:190/224;background:#EFEFF6;border-radius:24px;padding:13px 12px;text-align:left;position:relative;flex:0 1 auto;min-height:0;
     box-shadow:0 24px 48px -16px rgba(0,0,0,.6),0 0 0 5px rgba(255,255,255,.05);
     transform:perspective(900px) rotateX(7deg) translateY(6px) scale(.97);opacity:.5;
     transition:transform .6s cubic-bezier(.22,.9,.24,1),opacity .5s;overflow:hidden;}
@@ -1349,6 +1356,11 @@
   .wa-inline-msg{font-size:12px;line-height:1.45;margin-top:10px;padding:10px 12px;border-radius:11px;font-weight:600;}
   .wa-inline-msg.ok{background:#E7F6EE;color:#15924F;}
   .wa-inline-msg.err{background:#FDECEC;color:#DC2626;}
+  /* iPhone / layar sedang: pastikan mockup menyusut lebih dulu sehingga
+     baris kedua deskripsi tidak pernah terpotong / bentrok dengan bullet dots. */
+  @media (max-height:820px){
+    .intro-ui{height:clamp(160px,23vh,206px);}
+  }
   /* iPhone pendek (mis. SE / layar < 720px): rapatkan supaya mockup & teks
      tidak terpotong; caption & keterangan mengecil menyesuaikan tinggi. */
   @media (max-height:720px){
@@ -2438,32 +2450,68 @@ function mountWelcome(){
 function mountIntro(){ mountWelcome(); }
 function mountAuthGate(){ mountWelcome(); }
 
-function mountOnboarding(){
+function mountOnboarding(opts){
+  // opts.mode: 'login' (default) | 'join' (pasangan dari undangan WhatsApp)
+  // opts.code: kode undangan (mode 'join')
+  const o = (typeof opts==='object' && opts) ? opts : {};
+  const isJoin = o.mode==='join';
+  const joinCode = o.code || APP.pendingJoin || '';
+  const inviter = (APP.partner||'').trim(); // nama pengundang bila sudah terbaca
+  const prefill = ((APP.name||APP.suggestedName||'')).replace(/"/g,'&quot;');
+  // Badge konteks di atas judul: undangan (hijau WA) atau email terverifikasi.
+  let ctx='';
+  if(isJoin){
+    ctx=`<div class="ob-invite">
+      <span class="ob-invite-av">${I.users}</span>
+      <span>Kamu diundang${inviter?` oleh <b>${inviter}</b>`:''} untuk <b>ATUR Berdua</b></span>
+    </div>`;
+  }else if(APP.authMode==='cloud' && (APP.email||'').trim()){
+    ctx=`<div class="ob-verified">${I.check} ${(APP.suggestedName?'Akun':'Email')} terverifikasi · ${APP.email}</div>`;
+  }
+  const hi   = isJoin ? 'Kenalan dulu 👋' : 'Selamat datang 👋';
+  const sub  = isJoin
+    ? `Masukkan namamu supaya ${inviter||'pasanganmu'} tahu ini kamu.`
+    : 'Catat & atur keuanganmu dengan rapi. Masukkan namamu dulu untuk personalisasi.';
+  const cta  = isJoin ? `Gabung ATUR Berdua ${I.chev}` : `Masuk ke ATUR ${I.chev}`;
+  const btnStyle = isJoin ? 'style="background:#25D366"' : '';
   stage.innerHTML=`
     <div class="device-wrap">
-      <div class="device-tag tag-s" id="deviceTag">● ATUR — Mulai</div>
+      <div class="device-tag ${isJoin?'tag-b':'tag-s'}" id="deviceTag">● ATUR — ${isJoin?'Gabung':'Mulai'}</div>
       <div class="phone">
-        <div class="screen mode-s" id="screen">
+        <div class="screen ${isJoin?'mode-b':'mode-s'}" id="screen">
           <div class="notch"></div>
           <div class="scroll" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 26px">
             <img class="wordmark-img" src="${LOGO_SRC}" alt="ATUR" style="height:34px;margin-bottom:8px">
-            <div class="ob-hi">Selamat datang 👋</div>
-            <div class="ob-sub">Catat & atur keuanganmu dengan rapi. Masukkan namamu dulu untuk personalisasi.</div>
-            <input id="obName" class="ob-input" type="text" placeholder="Nama kamu" maxlength="24" autocomplete="off" value="${((APP.name||APP.suggestedName||'')).replace(/"/g,'&quot;')}">
-            <button id="obEnter" class="ob-btn">Masuk ke ATUR ${I.chev}</button>
-            <button id="obToGate" style="background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px;text-decoration:underline;text-underline-offset:3px">Punya akun? Masuk / Daftar</button>
+            ${ctx}
+            <div class="ob-hi">${hi}</div>
+            <div class="ob-sub">${sub}</div>
+            <input id="obName" class="ob-input" type="text" placeholder="Nama kamu" maxlength="24" autocomplete="off" value="${prefill}">
+            <button id="obEnter" class="ob-btn" ${btnStyle}>${cta}</button>
+            ${isJoin ? '' : `<button id="obToGate" style="background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px;text-decoration:underline;text-underline-offset:3px">Punya akun? Masuk / Daftar</button>`}
           </div>
         </div>
       </div>
     </div>`;
   const inp=document.getElementById('obName');
   const btn=document.getElementById('obEnter');
-  const enter=()=>{
+  const enter=async()=>{
     const v=(inp.value||'').trim();
     if(!v){ inp.classList.add('shake'); setTimeout(()=>inp.classList.remove('shake'),400); inp.focus(); return; }
     APP.name=v; APP.onboarded=true; APP.introSeen=true; APP.profileDone=true;
     if(APP.authMode!=='cloud') APP.authMode='guest';
     saveApp(); syncNames();
+    // Alur pasangan: proses undangan SEKARANG (nama sudah ada → display_name tercatat),
+    // lalu masuk langsung ke dashboard ATUR Berdua (bukan Sendiri).
+    if(isJoin && joinCode && APP.authMode==='cloud'){
+      btn.disabled=true; btn.textContent='Menghubungkan…';
+      let ok=false;
+      try{ await acceptInvite(joinCode); ok=true; }catch(e){}
+      APP.pendingJoin=''; saveApp();
+      try{ localStorage.removeItem('atur_pending_join'); }catch(e){}
+      if(ok){ enterBerduaAfterJoin(); return; }
+      // Gagal accept (mis. kode kedaluwarsa) → tetap masuk, beri tahu singkat.
+      try{ appAlert && appAlert('Undangan tidak bisa diproses (mungkin kedaluwarsa). Kamu tetap masuk — minta pasangan kirim ulang undangan.'); }catch(e){}
+    }
     mountPhone();
   };
   btn.addEventListener('click',enter);
@@ -2890,7 +2938,7 @@ function txnPic(t){
 // Nama user & pasangan, status onboarding, koneksi Berdua, dan API key AI
 // semuanya tersimpan di localStorage. Default: nama kosong, belum onboarding,
 // Berdua terkunci sampai user mengisi/melewati.
-const APP_DEFAULT = { name:'', partner:'', onboarded:false, berduaSetup:false, aiKey:'', introSeen:false, authMode:'guest', email:'', phone:'', householdId:'', profileDone:false };
+const APP_DEFAULT = { name:'', partner:'', onboarded:false, berduaSetup:false, aiKey:'', introSeen:false, authMode:'guest', email:'', phone:'', householdId:'', profileDone:false, pendingJoin:'' };
 let APP = (function loadApp(){
   try{ return Object.assign({}, APP_DEFAULT, JSON.parse(localStorage.getItem('atur_app')||'{}')); }
   catch(e){ return Object.assign({}, APP_DEFAULT); }
@@ -2976,7 +3024,7 @@ async function ensureHousehold(mode){
     .insert({ name:(APP.name?APP.name+"'s":'Rumah'), mode:mode||'s', created_by:uid })
     .select('id').single();
   if(error){ console.warn('ensureHousehold insert', error); return null; }
-  await c.from('household_members').insert({ household_id:hh.id, user_id:uid, role:'owner' });
+  await c.from('household_members').insert({ household_id:hh.id, user_id:uid, role:'owner', display_name:(APP.name||'').trim()||null });
   APP.householdId=hh.id; saveApp();
   return hh.id;
 }
@@ -2998,12 +3046,32 @@ async function acceptInvite(code){
   const { data:inv, error:e1 } = await c.from('invites').select('household_id,expires_at').eq('code',code).single();
   if(e1||!inv) throw new Error('kode tidak valid');
   if(new Date(inv.expires_at) < new Date()) throw new Error('undangan kedaluwarsa');
+  const myNm=(APP.name||'').trim()||null;
   const { error:e2 } = await c.from('household_members')
-    .insert({ household_id:inv.household_id, user_id:uid, role:'member' });
+    .insert({ household_id:inv.household_id, user_id:uid, role:'member', display_name:myNm });
   if(e2 && e2.code!=='23505') throw e2; // 23505 = sudah anggota, abaikan
+  // Kalau sudah anggota (23505) tapi punya nama baru → perbarui display_name.
+  if(e2 && e2.code==='23505' && myNm){
+    try{ await c.from('household_members').update({ display_name:myNm }).eq('household_id',inv.household_id).eq('user_id',uid); }catch(_){}
+  }
   await c.from('invites').update({ accepted_by:uid, accepted_at:new Date().toISOString() }).eq('code',code);
-  APP.householdId=inv.household_id; berduaConnected=true; saveApp(); syncNames();
+  APP.householdId=inv.household_id; berduaConnected=true;
+  // Ambil nama PENGUNDANG (anggota lain di household ini) → tampil di greeting Berdua.
+  try{ const nm=await fetchPartnerName(inv.household_id, uid); if(nm) APP.partner=nm; }catch(_){}
+  saveApp(); syncNames();
   return inv.household_id;
+}
+// Baca display_name anggota household SELAIN diri sendiri (untuk sync nama pasangan
+// dua arah). Fallback null bila belum ada / kolom kosong. Aman bila offline.
+async function fetchPartnerName(householdId, selfUid){
+  try{
+    const c=initSupabase(); if(!c||!householdId) return null;
+    const { data } = await c.from('household_members')
+      .select('user_id,display_name').eq('household_id',householdId);
+    if(!data) return null;
+    const other=data.find(r=>r.user_id!==selfUid && (r.display_name||'').trim());
+    return other ? other.display_name.trim() : null;
+  }catch(e){ return null; }
 }
 async function leaveHousehold(){
   // 1) hentikan channel real-time bila ada
@@ -3059,6 +3127,21 @@ function syncBerduaRealtime(onChange){
       .on('postgres_changes',
         { event:'*', schema:'public', table:'transactions', filter:'household_id=eq.'+APP.householdId },
         payload=>{ if(typeof onChange==='function') onChange(payload); })
+      // Sync nama pasangan DUA ARAH: begitu anggota lain menulis/ubah display_name
+      // (mis. pasangan baru gabung), pengundang menerima update & menyegarkan greeting.
+      .on('postgres_changes',
+        { event:'*', schema:'public', table:'household_members', filter:'household_id=eq.'+APP.householdId },
+        async ()=>{
+          try{
+            const sess=await currentSession(); if(!sess) return;
+            const nm=await fetchPartnerName(APP.householdId, sess.user.id);
+            if(nm && nm!==APP.partner){
+              APP.partner=nm; berduaConnected=true; saveApp(); syncNames();
+              if(typeof setGreeting==='function') setGreeting();
+              if(typeof refreshDash==='function') refreshDash();
+            }
+          }catch(e){}
+        })
       .subscribe();
   }catch(e){ console.warn('syncBerduaRealtime', e); }
 }
@@ -6357,8 +6440,26 @@ function renderTop(animateIn){
       const raw=(waPhone?.value||'').replace(/\D/g,'');
       if(raw.length<8){ appAlert('Masukkan nomor WhatsApp yang valid (tanpa kode negara).'); return; }
       const intl='62'+raw.replace(/^0+/,'');
-      const msg=`Yuk catat keuangan bareng di ATUR Berdua! Gabung pakai kode ${inviteCode}: https://atur.app/join?code=${inviteCode}`;
-      // production: WhatsApp Cloud API template send; demo: open chat deep-link
+      // End-to-end: kalau sudah login (cloud), buat undangan NYATA di Supabase
+      // (sekaligus ensureHousehold mode 'b') supaya tautan yang dikirim benar-benar
+      // bisa menghubungkan akun saat pasangan membukanya. Guest → link demo lokal.
+      let code=inviteCode, link='https://atur.app/join?code='+inviteCode;
+      if(APP.authMode==='cloud'){
+        const orig=waConnectBtn.innerHTML;
+        waConnectBtn.disabled=true; waConnectBtn.innerHTML='Menyiapkan undangan…';
+        try{
+          const inv=await createInvite();
+          code=inv.code; link=inv.link;
+          const cb=sub.querySelector('#waCode'); if(cb) cb.textContent=code;
+        }catch(e){
+          waConnectBtn.disabled=false; waConnectBtn.innerHTML=orig;
+          appAlert('Gagal menyiapkan undangan. Pastikan kamu sudah masuk & tersambung internet, lalu coba lagi.');
+          return;
+        }
+      }else{
+        link=location.origin+location.pathname+'?join='+code;
+      }
+      const msg=`Yuk catat keuangan bareng di ATUR Berdua! Gabung pakai kode ${code}: ${link}`;
       window.open('https://wa.me/'+intl+'?text='+encodeURIComponent(msg),'_blank');
       const pend=sub.querySelector('#waPending');
       if(pend){ pend.style.display='flex'; }
@@ -7060,16 +7161,71 @@ async function routeAfterAuth(session){
   applySessionToApp(session);
   // Bersihkan token magic-link / kode OAuth dari URL biar tidak nyangkut saat refresh.
   try{ if(location.hash.includes('access_token')||location.hash.includes('type=')||location.search.includes('code=')){ history.replaceState(null,'',location.origin+location.pathname); } }catch(e){}
-  try{
-    const jp=new URLSearchParams(location.search).get('join');
-    if(jp){ await acceptInvite(jp).catch(()=>{}); history.replaceState(null,'',location.origin+location.pathname); }
-  }catch(e){}
+  // Kode undangan bisa datang dari URL (?join=) ATAU dari pendingJoin yang
+  // disimpan SEBELUM proses login (bertahan melewati redirect OAuth / magic-link).
+  let joinCode='';
+  try{ joinCode=new URLSearchParams(location.search).get('join')||''; }catch(e){}
+  if(!joinCode){ try{ joinCode=localStorage.getItem('atur_pending_join')||APP.pendingJoin||''; }catch(e){} }
+  let joined=false;
+  if(joinCode){
+    // Simpan agar tetap ada bila user baru harus isi nama dulu sebelum accept selesai.
+    APP.pendingJoin=joinCode; saveApp();
+    try{ localStorage.setItem('atur_pending_join', joinCode); }catch(e){}
+    try{ history.replaceState(null,'',location.origin+location.pathname); }catch(e){}
+  }
   migrateLocalToCloud().catch(()=>{});
-  // Login sukses tapi profil belum diisi → minta isi nama dulu, baru ke Home.
-  if(!APP.profileDone){ mountOnboarding(); return; }
+  // === Requirement A & B: user login BARU (belum punya nama) → SELALU isi nama dulu. ===
+  const isNewProfile = !((APP.name||'').trim());
+  if(isNewProfile || !APP.profileDone){
+    // Konteks pasangan bila ada undangan → onboarding varian "join".
+    mountOnboarding(joinCode ? {mode:'join', code:joinCode} : {mode:'login'});
+    return;
+  }
+  // Profil sudah lengkap & masih ada undangan tertunda → proses accept lalu ke Berdua.
+  if(joinCode){
+    try{ await acceptInvite(joinCode); joined=true; }catch(e){}
+    APP.pendingJoin=''; saveApp();
+    try{ localStorage.removeItem('atur_pending_join'); }catch(e){}
+    if(joined){ enterBerduaAfterJoin(); return; }
+  }
+  // Pengundang (sudah punya household): pastikan display_name-nya tercatat &
+  // tarik nama pasangan bila sudah bergabung, supaya greeting Berdua benar.
+  if(APP.householdId){
+    try{
+      const c=initSupabase();
+      if(c && (APP.name||'').trim()){
+        await c.from('household_members').update({ display_name:APP.name.trim() })
+          .eq('household_id',APP.householdId).eq('user_id',session.user.id);
+      }
+      const nm=await fetchPartnerName(APP.householdId, session.user.id);
+      if(nm){ APP.partner=nm; berduaConnected=true; saveApp(); syncNames(); }
+    }catch(e){}
+  }
   mountPhone();
 }
+// Masuk langsung ke dashboard ATUR BERDUA (bukan Sendiri) setelah pasangan gabung.
+function enterBerduaAfterJoin(){
+  APP.berduaSetup=true; berduaConnected=true; currentMode='b';
+  saveApp(); syncNames();
+  try{ swapProjStore('b'); }catch(e){}
+  mountPhone();
+  // Pastikan tampilan aktif mode-b (mountPhone default bisa render mode-s).
+  try{
+    const screen=document.getElementById('screen');
+    if(screen){ screen.classList.add('mode-b'); screen.classList.remove('mode-s'); }
+    if(typeof refreshTag==='function') refreshTag();
+    if(typeof setGreeting==='function') setGreeting();
+    if(typeof refreshDash==='function') refreshDash();
+    if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshDash==='function') refreshDash(); });
+  }catch(e){}
+}
 async function boot(){
+  // Tangkap ?join= SEDINI mungkin & simpan supaya bertahan melewati login
+  // (OAuth Google / magic-link email me-redirect balik → tanpa ini kode hilang).
+  try{
+    const jp=new URLSearchParams(location.search).get('join');
+    if(jp){ APP.pendingJoin=jp; saveApp(); localStorage.setItem('atur_pending_join', jp); }
+  }catch(e){}
   // Dengarkan perubahan sesi: menangkap kasus token magic-link/OAuth yang baru
   // selesai ditukar SETELAH boot() sempat menampilkan Welcome (hindari race).
   try{
