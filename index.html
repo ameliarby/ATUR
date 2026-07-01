@@ -3661,7 +3661,7 @@ function scrSources(){
 /* e-Statement import: upload PDF -> AI parse + auto-categorize -> editable review */
 // Hasil parse aktif (diisi oleh AI atau fallback heuristik). Bisa diedit user.
 let aiParsePreview=[];
-let aiParseMeta={ source:'', lineCount:0, mode:'', bank:'', defaultPic:'reza', via:'', reason:'', textLen:0 }; // info ekstraksi + initial penanggung jawab (default: user) + diagnostik jalur parser
+let aiParseMeta={ source:'', lineCount:0, mode:'', bank:'', defaultPic:'reza', via:'', reason:'', textLen:0, aiCount:0, baseCount:0, recovered:0 }; // info ekstraksi + initial penanggung jawab (default: user) + diagnostik jalur parser
 let aiExpandedRows=new Set(); // baris tinjau yang sedang dibuka (editable); default ringkas/tertutup
 let aiDateFilter=null; // null = semua tanggal; selain itu, string tanggal (mis. '12 Jun') untuk memfilter baris tinjau
 let aiDateFrom=null, aiDateTo=null; // saringan PERIODE tanggal (indeks pada daftar tanggal terurut); null = batas terbuka
@@ -4237,6 +4237,52 @@ function parseJagoText(text){
   }
   return res.sort((a,b)=>dateSortKey(a.date)-dateSortKey(b.date));
 }
+// ---- REKONSILIASI hasil AI dengan baseline TERSTRUKTUR (parseJagoText) ----
+//   Masalah: AI (gpt-4o-mini) sering MEMOTONG daftar transaksi yang panjang karena
+//   batas token keluaran → hanya sebagian transaksi yang kembali. Parser terstruktur
+//   `parseJagoText` bersifat deterministik & menangkap SEMUA baris. Fungsi ini
+//   menggabungkan keduanya: pakai kategori/analisis AI di mana transaksi COCOK,
+//   lalu KEMBALIKAN transaksi yang AI lewatkan dari baseline terstruktur.
+//   Kunci pencocokan: tanggal + waktu + nominal (toleran terhadap variasi format).
+//   Mengembalikan {txns, recovered}: recovered = jumlah transaksi yang dipulihkan.
+function reconcileWithStructured(aiTxns, baseTxns){
+  aiTxns=Array.isArray(aiTxns)?aiTxns:[];
+  baseTxns=Array.isArray(baseTxns)?baseTxns:[];
+  // Bila tak ada baseline (mis. bukan e-statement Jago), pakai hasil AI apa adanya.
+  if(!baseTxns.length) return { txns:aiTxns.slice().sort((a,b)=>dateSortKey(a.date)-dateSortKey(b.date)), recovered:0 };
+  // Kunci pencocokan: "dd-mon|HH:MM|amt". Waktu bisa "HH.MM" atau "HH:MM"; normalkan.
+  const normT=(t)=>String(t||'').replace(/[.:]/g,':').replace(/^(\d):/,'0$1:').slice(0,5);
+  const normD=(d)=>{ const m=String(d||'').match(/(\d{1,2})\s*([A-Za-z]{3})/); return m?(m[1].padStart(2,'0')+' '+m[2].charAt(0).toUpperCase()+m[2].slice(1,3).toLowerCase()):String(d||'').trim(); };
+  const keyOf=(t)=>`${normD(t.date)}|${normT(t.timeFull||t.time)}|${Math.abs(Math.round(+t.amt||0))}`;
+  // Kunci longgar (tanpa waktu) sebagai cadangan bila waktu berbeda format/hilang.
+  const keyLoose=(t)=>`${normD(t.date)}|${Math.abs(Math.round(+t.amt||0))}`;
+  const aiExact=new Map();
+  aiTxns.forEach(t=>{ const k=keyOf(t); aiExact.set(k,(aiExact.get(k)||0)+1); });
+  // Kunci longgar HANYA dari transaksi AI yang tak punya waktu jelas — supaya
+  // transaksi AI yang PUNYA waktu tapi beda tak sengaja menekan baris baseline yang
+  // sah (mis. dua transaksi tgl+nominal sama di jam berbeda).
+  const aiLoose=new Map();
+  aiTxns.forEach(t=>{ if(!normT(t.timeFull||t.time)){ const k=keyLoose(t); aiLoose.set(k,(aiLoose.get(k)||0)+1); } });
+  const exactSeen=new Map(), baseLooseSeen=new Map();
+  let recovered=0;
+  const extra=[];
+  baseTxns.forEach(b=>{
+    const ke=keyOf(b), kl=keyLoose(b);
+    exactSeen.set(ke,(exactSeen.get(ke)||0)+1);
+    baseLooseSeen.set(kl,(baseLooseSeen.get(kl)||0)+1);
+    // AI sudah punya (cocok persis) sebanyak/lebih dari kemunculan baseline sejauh
+    // ini → biarkan versi AI (dukung transaksi kembar mis. transfer antar kantong).
+    if((aiExact.get(ke)||0)>=exactSeen.get(ke)) return;
+    // cocok longgar: HANYA bila AI punya transaksi tgl+nominal sama TANPA waktu
+    // sebanyak/lebih dari yang muncul di baseline sejauh ini → anggap tercakup.
+    const aiN=aiLoose.get(kl)||0;
+    if(aiN>=baseLooseSeen.get(kl)) return;
+    // transaksi ini AI LEWATKAN → pulihkan dari baseline terstruktur.
+    extra.push(b); recovered++;
+  });
+  const merged=aiTxns.concat(extra).sort((a,b)=>dateSortKey(a.date)-dateSortKey(b.date));
+  return { txns:merged, recovered };
+}
 // Endpoint backend proxy (serverless). Relatif terhadap origin, jadi otomatis
 // benar saat di-deploy ke Vercel ('/api/parse-estatement'). Bisa di-override.
 const AI_PROXY_URL = (window.ATUR_AI_PROXY_URL || '/api/parse-estatement');
@@ -4418,7 +4464,7 @@ function scrImport(stage){
     // --- Indikator diagnostik jalur parser: tampilkan JELAS jalur mana yang dipakai ---
     const dp=parserPathInfo();
     const diagBadge=`<span class="diag-badge ${dp.cls}">${dp.icon} ${esc(dp.label)}</span>`;
-    const srcNote = aiParseMeta.mode==='ai' ? `Diurai AI · ${aiParsePreview.length} transaksi`
+    const srcNote = aiParseMeta.mode==='ai' ? `Diurai AI · ${aiParsePreview.length} transaksi`+(aiParseMeta.recovered>0?` (${aiParseMeta.recovered} dipulihkan)`:'')
                   : aiParseMeta.mode==='local' ? `Diurai otomatis (lokal) · ${aiParsePreview.length} transaksi`
                   : `Contoh data · ${aiParsePreview.length} transaksi`;
     // Hitung berapa yang perlu ditinjau (klasifikasi belum yakin) untuk ringkasan atas.
@@ -5094,19 +5140,35 @@ function renderTop(animateIn){
         if(aiParseMeta.textLen<20){
           aiParseMeta.reason='Teks hasil ekstraksi PDF kosong — PDF mungkin hasil scan/terproteksi, atau pdf.js gagal dimuat.';
         }
+        // BASELINE TERSTRUKTUR (deterministik): parser Jago menangkap 100% baris
+        // transaksi dari e-statement (tanpa bergantung pada AI). Dihitung DULU agar
+        // bisa dipakai untuk MEREKONSILIASI hasil AI — sebab AI (gpt-4o-mini) sering
+        // MEMOTONG daftar panjang (batas token keluaran) sehingga hanya SEBAGIAN
+        // transaksi yang kembali. Dengan baseline ini, transaksi yang "hilang" dari
+        // AI kita kembalikan dari parser terstruktur → tidak ada transaksi yang lolos.
+        const jagoBase=parseJagoText(text);
         try{
           // 1) AI: proxy backend diutamakan (key di server), lalu BYO-key bila ada.
           const r=await parseEstatementAI(text);
           if(r && r.txns && r.txns.length){
-            aiParsePreview=r.txns; aiParseMeta.mode='ai'; aiParseMeta.via=r.via;
+            // REKONSILIASI: gabungkan AI (kategori pintar) + baseline terstruktur
+            // (kelengkapan). Bila baseline menemukan LEBIH banyak transaksi daripada
+            // AI, transaksi yang AI lewatkan ditambahkan kembali dari baseline.
+            const merged=reconcileWithStructured(r.txns, jagoBase);
+            aiParsePreview=merged.txns; aiParseMeta.mode='ai'; aiParseMeta.via=r.via;
+            aiParseMeta.aiCount=r.txns.length; aiParseMeta.baseCount=jagoBase.length;
+            aiParseMeta.recovered=merged.recovered;
+            if(merged.recovered>0){
+              aiParseMeta.reason=`AI hanya mengembalikan ${r.txns.length} transaksi (kemungkinan terpotong batas token); ${merged.recovered} transaksi yang terlewat dipulihkan dari pengurai terstruktur. Total ${merged.txns.length}.`;
+              console.warn('[ATUR] Rekonsiliasi:', aiParseMeta.reason);
+            }
           } else { const e=new Error('ai-empty'); e.txns=r&&r.txns; throw e; }
         }catch(e){
           // Jalur AI gagal / kosong → SIMPAN alasannya (jangan telan diam-diam) lalu
           // fallback berlapis: parser terstruktur Jago -> pengurai lokal umum -> data contoh.
           aiParseMeta.reason=aiFailReason(e, aiParseMeta.textLen);
           console.warn('[ATUR] Jalur AI dilewati:', e && (e.message||e), '| alasan:', aiParseMeta.reason);
-          const jago=parseJagoText(text);
-          if(jago.length){ aiParsePreview=jago; aiParseMeta.mode='local'; aiParseMeta.via='jago-struct'; }
+          if(jagoBase.length){ aiParsePreview=jagoBase; aiParseMeta.mode='local'; aiParseMeta.via='jago-struct'; }
           else {
             const local=localParse(text);
             if(local.length){ aiParsePreview=local; aiParseMeta.mode='local'; aiParseMeta.via='local-generic'; }
