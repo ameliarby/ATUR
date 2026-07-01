@@ -2553,7 +2553,7 @@ function openBerduaLock(){
     finish(v);
   });
   ov.querySelector('#bd-share').addEventListener('click',async()=>{
-    const link='https://atur.app/undang/'+inviteCode;
+    const link=location.origin+location.pathname+'?join='+inviteCode;
     try{ if(navigator.share){ await navigator.share({title:'ATUR Berdua',text:'Yuk atur keuangan bareng di ATUR',url:link}); } else { await appAlert('Bagikan tautan ini ke pasanganmu:\n'+link,'Tautan undangan'); } }
     catch(e){}
   });
@@ -4043,7 +4043,7 @@ function scrReview(){
 
 /* 8a-WA — Berdua: hubungkan via WhatsApp (realistis, siap-deploy) */
 function scrConnectWA(){
-  const waLink=()=>'https://atur.app/join?code='+inviteCode;
+  const waLink=()=>location.origin+location.pathname+'?join='+inviteCode;
   return subBar('Hubungkan via WhatsApp', berduaConnected?('Terhubung dengan '+partnerName):'Sambungkan akun ATUR Berdua')+
   `<div class="sub-scroll" id="waConnect">
     <div class="wa-hero">
@@ -4081,7 +4081,7 @@ function scrConnectWA(){
       <div class="wa-status wait" id="waPending" style="display:none"><span class="invite-dot"></span> Menunggu pasangan menerima undangan…</div>
     `}
     <div class="wa-api-note">
-      <b>Catatan teknis (produksi):</b> integrasi memakai <b>WhatsApp Business Cloud API</b> (Meta) untuk kirim <i>template message</i> berkategori <i>AUTHENTICATION</i> berisi tautan deep-link <code>atur.app/join?code=…</code> + OTP. Backend ATUR menyimpan pasangan <code>(household_id, member_id)</code>, memverifikasi OTP server-side, lalu menautkan kedua akun. Webhook <code>messages.status</code> memperbarui status undangan (terkirim → dibaca → bergabung) secara real-time.
+      <b>Catatan teknis (produksi):</b> integrasi memakai <b>WhatsApp Business Cloud API</b> (Meta) untuk kirim <i>template message</i> berkategori <i>AUTHENTICATION</i> berisi tautan deep-link <code>atur-ashy.vercel.app/?join=…</code> + OTP. Backend ATUR menyimpan pasangan <code>(household_id, member_id)</code>, memverifikasi OTP server-side, lalu menautkan kedua akun. Webhook <code>messages.status</code> memperbarui status undangan (terkirim → dibaca → bergabung) secara real-time.
     </div>
   </div>`;
 }
