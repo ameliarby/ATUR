@@ -910,8 +910,19 @@
   .ai-step.done .dot{background:#15924F;border-color:#15924F;color:#fff;}
   .ai-step.run{color:#2563EB;font-weight:700;}
   .ai-step.run .dot{border-color:#2563EB;border-top-color:transparent;animation:spin .8s linear infinite;}
-  .ai-banner{display:flex;align-items:center;gap:9px;background:#F2F6FF;border:1px solid #DCE6FF;border-radius:13px;padding:12px 13px;margin-bottom:14px;font-size:12px;color:#2455C4;font-weight:600;line-height:1.4;}
-  .ai-banner svg{width:17px;height:17px;flex:none;color:#2563EB;}
+  .ai-banner{display:flex;align-items:flex-start;gap:9px;background:#F2F6FF;border:1px solid #DCE6FF;border-radius:13px;padding:12px 13px;margin-bottom:14px;font-size:12px;color:#2455C4;font-weight:600;line-height:1.4;}
+  .ai-banner svg{width:17px;height:17px;flex:none;color:#2563EB;margin-top:1px;}
+  .ai-banner.diag-warn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412;}
+  .ai-banner.diag-warn svg{color:#EA580C;}
+  .diag-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;letter-spacing:.2px;padding:2px 8px;border-radius:999px;vertical-align:middle;white-space:nowrap;text-transform:uppercase;}
+  .diag-badge svg{width:11px;height:11px;flex:none;}
+  .diag-badge.diag-ai{background:#EAF7F0;color:#15924F;}
+  .diag-badge.diag-ai svg{color:#15924F;}
+  .diag-badge.diag-local{background:#FEF3E2;color:#B45309;}
+  .diag-badge.diag-local svg{color:#B45309;}
+  .diag-badge.diag-demo{background:#FDEEE7;color:#C2410C;}
+  .diag-badge.diag-demo svg{color:#C2410C;}
+  .diag-reason{margin-top:7px;font-size:11px;font-weight:600;line-height:1.45;color:#9A3412;background:#FFEDD5;border-radius:9px;padding:7px 9px;}
   .imp-card{background:#fff;border:1px solid #ECEBF3;border-radius:16px;padding:14px 15px;margin-bottom:11px;box-shadow:var(--sh-sm);}
   .imp-top{display:flex;align-items:center;gap:11px;}
   .imp-dir{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;}
@@ -3549,7 +3560,7 @@ function scrSources(){
 /* e-Statement import: upload PDF -> AI parse + auto-categorize -> editable review */
 // Hasil parse aktif (diisi oleh AI atau fallback heuristik). Bisa diedit user.
 let aiParsePreview=[];
-let aiParseMeta={ source:'', lineCount:0, mode:'', bank:'', defaultPic:'reza' }; // info ekstraksi + initial penanggung jawab (default: user)
+let aiParseMeta={ source:'', lineCount:0, mode:'', bank:'', defaultPic:'reza', via:'', reason:'', textLen:0 }; // info ekstraksi + initial penanggung jawab (default: user) + diagnostik jalur parser
 let aiExpandedRows=new Set(); // baris tinjau yang sedang dibuka (editable); default ringkas/tertutup
 let aiDateFilter=null; // null = semua tanggal; selain itu, string tanggal (mis. '12 Jun') untuk memfilter baris tinjau
 let aiDateFrom=null, aiDateTo=null; // saringan PERIODE tanggal (indeks pada daftar tanggal terurut); null = batas terbuka
@@ -3816,13 +3827,28 @@ function localParse(text){
     const am=line.match(/(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d{4,})(?:[.,]\d{2})?/i);
     if(!am) return;
     const amt=parseInt(am[1].replace(/[.,]/g,''),10); if(!amt||amt<1000) return;
-    const dir=/(masuk|kredit|credit|gaji|salary|cr\b|\+)/i.test(line)?'in':'out';
-    let cat='Lainnya', sub='Others', conf=0.6;
-    for(const [re,c,s] of KW_CAT){ if(re.test(line)){ cat=c; sub=s; conf=0.82; break; } }
+    const dirHit=/(masuk|kredit|credit|gaji|salary|cr\b|\+)/i.test(line);
+    const dir=dirHit?'in':'out';
+    let cat='Lainnya', sub='Others', kwHit=false;
+    for(const [re,c,s] of KW_CAT){ if(re.test(line)){ cat=c; sub=s; kwHit=true; break; } }
     const dm=line.match(/(\d{1,2})[\/\-\s](jan|feb|mar|apr|mei|may|jun|jul|agu|aug|sep|okt|oct|nov|des|dec)/i);
     const date=dm?`${dm[1].padStart(2,'0')} ${dm[2].slice(0,3).replace(/may/i,'Mei').replace(/aug/i,'Agu').replace(/oct/i,'Okt').replace(/dec/i,'Des')}`:'—';
     const tm=line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
     const time=tm?`${tm[1].padStart(2,'0')}:${tm[2]}`:'';
+    // Confidence bertingkat (bukan datar 60%): dihitung dari kekuatan sinyal yang
+    // benar-benar ditemukan di baris — kategori dari kata kunci, kejelasan nominal
+    // (format ribuan Rp), ada tanggal, ada waktu, dan arah in/out yang eksplisit.
+    // Hasil di-clamp ke rentang 0.35–0.9 supaya jujur: parser lokal tak pernah
+    // seyakin AI, tapi tetap membedakan baris yang jelas vs yang menebak.
+    let conf=0.35;
+    if(kwHit) conf+=0.30;                                   // kategori dikenali dari kata kunci
+    if(/[.,]\d{3}/.test(am[1])) conf+=0.12;                 // nominal berformat ribuan (lebih pasti angka uang)
+    if(dm) conf+=0.10;                                      // ada tanggal
+    if(time) conf+=0.05;                                    // ada waktu
+    if(dirHit) conf+=0.08;                                  // arah masuk/keluar eksplisit
+    const descLen=line.replace(am[0],'').replace(/[^A-Za-z]/g,'').length;
+    if(descLen>=6) conf+=0.05;                              // ada deskripsi merchant yang memadai
+    conf=Math.max(0.35,Math.min(0.9,Math.round(conf*100)/100));
     res.push({sender:(line.replace(am[0],'').replace(/[^A-Za-z0-9 &.\-]/g,' ').replace(/\s+/g,' ').trim().slice(0,40))||'Transaksi '+(++i), note:'', amt, date, time, dir, cat, sub, conf, save:/(tabung|saving|invest|bibit|reksa)/i.test(line)});
   });
   return res;
@@ -3945,11 +3971,18 @@ function parseJagoText(text){
     if(mkw){ source=joined.slice(0,mkw.index).trim(); detail=joined.slice(mkw.index).trim(); }
     else { source=mid[0]||''; }
     const pc=pocketToCat(pocket);
+    // Confidence bertingkat untuk parser terstruktur: dasar tinggi (0.85) karena
+    // kolom terbaca rapi; naik bila source & detail keduanya kebaca, turun sedikit
+    // bila blok minim teks (hanya angka) sehingga deskripsi lemah.
+    let conf=0.85;
+    if(source && detail && detail!==source) conf+=0.05;
+    if(!source && !detail) conf-=0.15;
+    conf=Math.max(0.6,Math.min(0.95,Math.round(conf*100)/100));
     res.push({
       sender:source||detail||'Transaksi', source, detail,
       note:'', amt, balance,
       date, dateFull, time:timeFull, timeFull,
-      dir, pocket, cat:pc[0], sub:pc[1], conf:0.9
+      dir, pocket, cat:pc[0], sub:pc[1], conf
     });
     i=j-1;
   }
@@ -4018,6 +4051,15 @@ async function parseViaProxy(text){
   });
   if(resp.status===501){ throw new Error('ai-not-configured'); }
   if(!resp.ok){ throw new Error('proxy-'+resp.status); }
+  // Bila route /api belum aktif, Vercel bisa mengembalikan HTML (200) alih-alih JSON.
+  // Deteksi ini agar diagnostik menampilkan penyebab sebenarnya, bukan error JSON kabur.
+  const ct=(resp.headers.get('content-type')||'');
+  if(!/json/i.test(ct)){
+    const peek=await resp.text().catch(()=>'');
+    if(/^\s*</.test(peek)) throw new Error('proxy-html'); // dapat HTML, bukan JSON → route belum ter-deploy
+    try{ const d=JSON.parse(peek); const a=Array.isArray(d.transactions)?d.transactions:[]; return shapeAiTxns(a); }
+    catch(e){ throw new Error('proxy-badjson'); }
+  }
   const data=await resp.json();
   const arr=Array.isArray(data.transactions)?data.transactions:[];
   return shapeAiTxns(arr);
@@ -4045,6 +4087,27 @@ async function parseViaUserKey(text, apiKey){
   return shapeAiTxns(arr);
 }
 
+// Terjemahkan error jalur AI menjadi alasan yang bisa dibaca user (diagnostik).
+// Ini kunci untuk kasus "request tak pernah sampai OpenAI": kita ungkap penyebabnya
+// alih-alih diam-diam jatuh ke parser lokal.
+function aiFailReason(e, textLen){
+  const m=(e && (e.message||String(e)))||'';
+  if(textLen!=null && textLen<20) return 'Teks hasil ekstraksi PDF kosong — AI tak dipanggil. PDF mungkin hasil scan/terproteksi atau pdf.js gagal dimuat.';
+  if(m==='no-text') return 'Teks e-statement kosong — AI tak dipanggil.';
+  if(m==='ai-empty') return 'Server AI membalas tanpa transaksi (kemungkinan format teks tak dikenali model).';
+  if(m==='ai-not-configured') return 'Server AI belum dikonfigurasi (OPENAI_API_KEY belum diset) dan tak ada kunci pribadi.';
+  if(m==='proxy-html') return '/api/parse-estatement mengembalikan HTML, bukan JSON — route serverless belum ter-deploy di Vercel.';
+  if(m==='proxy-badjson') return 'Balasan /api/parse-estatement bukan JSON yang valid.';
+  if(/^proxy-501$/.test(m)) return 'Server AI belum dikonfigurasi (HTTP 501).';
+  if(/^proxy-4\d\d$/.test(m)) return 'Permintaan ke server AI ditolak ('+m.replace('proxy-','HTTP ')+'). Cek rate-limit / isi permintaan.';
+  if(/^proxy-5\d\d$/.test(m)) return 'Server AI / OpenAI bermasalah ('+m.replace('proxy-','HTTP ')+').';
+  if(/^proxy-/.test(m)) return 'Server AI membalas status tak terduga ('+m.replace('proxy-','HTTP ')+').';
+  if(/^api-/.test(m)) return 'OpenAI (kunci pribadi) menolak permintaan ('+m.replace('api-','HTTP ')+').';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Tak bisa menjangkau server AI (jaringan/CORS diblokir atau /api tidak ter-deploy).';
+  if(/JSON|Unexpected token/i.test(m)) return 'Balasan server AI bukan JSON valid (mungkin /api mengembalikan HTML — route belum aktif).';
+  return 'Jalur AI gagal: '+m.slice(0,120);
+}
+
 // Orkestrator: coba proxy dulu; bila server belum dikonfigurasi, baru pakai
 // kunci milik user (bila ada). Mengembalikan {txns, via}.
 async function parseEstatementAI(text){
@@ -4070,6 +4133,21 @@ const aiParseDemo=[
   {sender:'Auto-debit Bibit',       note:'Reksa dana rutin',    amt:1200000, date:'26 Jun', time:'06:00', dir:'out', cat:'Investment',sub:'Mutual Fund',conf:0.93, save:true},
   {sender:'Transfer Tabungan Rumah',note:'Ref TRF0012',         amt:2500000, date:'01 Jun', time:'21:40', dir:'out', cat:'Investment',sub:'Saving',  conf:0.88, save:true}
 ];
+// Tentukan label + gaya indikator jalur parser yang aktif untuk ditampilkan ke user:
+//  - "AI (server)"       : proxy backend Vercel dipakai (key di server) → ideal.
+//  - "AI (kunci sendiri)": BYO-key user langsung ke OpenAI.
+//  - "Pengurai lokal"    : fallback tanpa AI (Jago-struct / heuristik umum).
+//  - "Data demo"         : tak ada transaksi terbaca sama sekali → contoh.
+function parserPathInfo(){
+  const m=aiParseMeta.mode, via=aiParseMeta.via;
+  if(m==='ai' && via==='proxy')   return {label:'AI (server)',        cls:'diag-ai',   tone:'ok',   icon:I.spark};
+  if(m==='ai' && via==='userkey') return {label:'AI (kunci sendiri)', cls:'diag-ai',   tone:'ok',   icon:I.spark};
+  if(m==='ai' && via==='sample')  return {label:'Data contoh (sample)',cls:'diag-demo', tone:'info', icon:I.spark};
+  if(m==='ai')                    return {label:'AI',                 cls:'diag-ai',   tone:'ok',   icon:I.spark};
+  if(m==='local')                 return {label:'Pengurai lokal',     cls:'diag-local',tone:'warn', icon:I.info||I.spark};
+  if(m==='demo')                  return {label:'Data demo',          cls:'diag-demo', tone:'warn', icon:I.info||I.spark};
+  return {label:'—', cls:'diag-local', tone:'warn', icon:I.spark};
+}
 function scrImport(stage){
   const accent=currentMode==='s'?'#2563EB':'#C2410C';
   // stage: 'pick' | 'parsing' | 'review'
@@ -4088,12 +4166,17 @@ function scrImport(stage){
   }
   if(stage==='review'){
     const esc=(v)=>String(v==null?'':v).replace(/"/g,'&quot;');
+    // --- Indikator diagnostik jalur parser: tampilkan JELAS jalur mana yang dipakai ---
+    const dp=parserPathInfo();
+    const diagBadge=`<span class="diag-badge ${dp.cls}">${dp.icon} ${esc(dp.label)}</span>`;
+    const diagReason=(dp.tone!=='ok' && aiParseMeta.reason)
+      ? `<div class="diag-reason">Kenapa bukan AI? ${esc(aiParseMeta.reason)}</div>` : '';
     const srcNote = aiParseMeta.mode==='ai' ? `Diurai AI · ${aiParsePreview.length} transaksi`
                   : aiParseMeta.mode==='local' ? `Diurai otomatis (lokal) · ${aiParsePreview.length} transaksi`
                   : `Contoh data · ${aiParsePreview.length} transaksi`;
     return subBar('Tinjau Hasil AI',`${aiParsePreview.length} transaksi terbaca · ketuk untuk mengubah`)+
     `<div class="sub-scroll imp-scroll" id="importScroll">
-      <div class="ai-banner">${I.spark}<div><div class="alert-t">${srcNote}</div><div class="alert-s">Ketuk satu baris untuk membuka & mengubah kolomnya. Saring dengan memilih periode tanggal di bawah.</div></div></div>
+      <div class="ai-banner ${dp.tone==='ok'?'':'diag-warn'}">${I.spark}<div style="flex:1"><div class="alert-t">${srcNote} ${diagBadge}</div><div class="alert-s">Ketuk satu baris untuk membuka & mengubah kolomnya. Saring dengan memilih periode tanggal di bawah.</div>${diagReason}</div></div>
       ${(()=>{ // saringan PERIODE tanggal (Dari … Sampai)
         const ord=aiSortedDates();
         if(ord.length<=1) return '';
@@ -4650,31 +4733,43 @@ function renderTop(animateIn){
         const text=await extractPdfText(file);
         aiParseMeta.lineCount=(text.match(/\d{4,}/g)||[]).length;
         aiParseMeta.bank=detectBankName(file,text); // label sumber untuk Catatan Arus Kas
+        aiParseMeta.textLen=(text||'').replace(/\s+/g,'').length; // panjang teks berarti (diagnostik)
+        aiParseMeta.via=''; aiParseMeta.reason=''; // reset diagnostik jalur parser
         // 0) SAMPLE Bank Jago dikenali -> pakai ekstraksi presisi (terurut tanggal, kategori per-kantong)
         if(isJagoSampleFile(file,text)){
           const js=jagoSampleParse();
-          if(js.length){ aiParsePreview=js; aiParseMeta.mode='ai'; finishParse(); return; }
+          if(js.length){ aiParsePreview=js; aiParseMeta.mode='ai'; aiParseMeta.via='sample'; finishParse(); return; }
+        }
+        // Jika ekstraksi teks kosong/terlalu tipis, AI PASTI gagal (no-text). Catat
+        // alasannya secara eksplisit supaya user tahu ini soal ekstraksi PDF, bukan AI.
+        if(aiParseMeta.textLen<20){
+          aiParseMeta.reason='Teks hasil ekstraksi PDF kosong — PDF mungkin hasil scan/terproteksi, atau pdf.js gagal dimuat.';
         }
         try{
           // 1) AI: proxy backend diutamakan (key di server), lalu BYO-key bila ada.
           const r=await parseEstatementAI(text);
           if(r && r.txns && r.txns.length){
             aiParsePreview=r.txns; aiParseMeta.mode='ai'; aiParseMeta.via=r.via;
-          } else { throw new Error('ai-empty'); }
+          } else { const e=new Error('ai-empty'); e.txns=r&&r.txns; throw e; }
         }catch(e){
-          // fallback berlapis: parser terstruktur Jago -> pengurai lokal umum -> data contoh
+          // Jalur AI gagal / kosong → SIMPAN alasannya (jangan telan diam-diam) lalu
+          // fallback berlapis: parser terstruktur Jago -> pengurai lokal umum -> data contoh.
+          aiParseMeta.reason=aiFailReason(e, aiParseMeta.textLen);
+          console.warn('[ATUR] Jalur AI dilewati:', e && (e.message||e), '| alasan:', aiParseMeta.reason);
           const jago=parseJagoText(text);
-          if(jago.length){ aiParsePreview=jago; aiParseMeta.mode='local'; }
+          if(jago.length){ aiParsePreview=jago; aiParseMeta.mode='local'; aiParseMeta.via='jago-struct'; }
           else {
             const local=localParse(text);
-            if(local.length){ aiParsePreview=local; aiParseMeta.mode='local'; }
-            else { aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; }
+            if(local.length){ aiParsePreview=local; aiParseMeta.mode='local'; aiParseMeta.via='local-generic'; }
+            else { aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; aiParseMeta.via='demo'; }
           }
         }
         finishParse();
       }catch(err){
         // Gagal baca PDF total -> pakai data contoh agar tetap ada hasil.
-        if(!aiParsePreview.length){ aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; }
+        aiParseMeta.reason='Gagal membaca berkas PDF sama sekali: '+String(err&&err.message||err).slice(0,120);
+        console.warn('[ATUR] Gagal baca PDF:', err);
+        if(!aiParsePreview.length){ aiParsePreview=aiParseDemo.map(t=>({...t})); aiParseMeta.mode='demo'; aiParseMeta.via='demo'; }
         finishParse();
       }
     };
