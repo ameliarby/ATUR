@@ -26,6 +26,9 @@ jago_may.pdf
 jago_text.txt
 *.e-statement.pdf
 /data-pribadi/
+# Buku kas pribadi utk melatih klasifikasi (JANGAN commit — data keuangan nyata)
+/_ledger_tmp/
+*.xlsm
 
 # Backup HTML versi lama (sudah ada di git history)
 atur_v*.html
