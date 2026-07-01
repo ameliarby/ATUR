@@ -3806,17 +3806,35 @@ async function extractPdfText(file){
 
 // ---- Heuristik lokal: cari baris bernominal Rupiah + tebak kategori dari kata kunci.
 //      Dipakai sebagai fallback bila tidak ada API key / panggilan AI gagal. ----
+// Tiap aturan: [regex, kategori, sub-kategori, bobot-keyakinan-KATEGORI].
+// Bobot = seberapa YAKIN kata kunci itu menentukan kategori dengan benar:
+//   0.95 → merchant/istilah sangat spesifik (nyaris pasti), mis. "netflix", "pln".
+//   0.85 → kuat tapi bisa ambigu antar sub, mis. "grab", "apotek".
+//   0.70 → generik/berpotensi salah, mis. kata "transport"/"makan" umum.
+// Ini fondasi confidence: parser lokal menilai KECOCOKAN transaksi↔kategori,
+// bukan kelengkapan tanggal/waktu.
 const KW_CAT=[
-  [/indomaret|alfamart|superindo|grocer|belanja bulanan/i,'Groceries','Food'],
-  [/gojek|grab|gocar|gofood|transport|bensin|parkir|tol|kereta|krl|mrt/i,'Transport','Motor'],
-  [/gaji|salary|payroll|transfer masuk/i,'Salary','Monthly'],
-  [/bibit|bareksa|reksa|saham|stockbit|invest|emas|pluang/i,'Investment Return','Capital Gain'],
-  [/listrik|pln|token|air|pdam|internet|wifi|indihome|telkom|pulsa/i,'Utilities','Electricity'],
-  [/netflix|spotify|youtube|disney|langganan|subscription/i,'Subscription','Software'],
-  [/resto|cafe|kopi|makan|food|warung|kfc|mcd/i,'Food','Meal'],
-  [/rumah sakit|klinik|apotek|dokter|obat|bpjs/i,'Medical','Doctor'],
-  [/tiket|hotel|liburan|wisata|vacation/i,'Vacation','Others'],
-  [/baju|sepatu|tokopedia|shopee|lazada|elektronik/i,'Shopping','Clothings']
+  [/\bindomaret\b|\balfamart\b|superindo|hypermart|transmart|grocer/i,'Groceries','Supermarket',0.95],
+  [/belanja bulanan|sayur|buah|daging|beras/i,'Groceries','Food',0.80],
+  [/\bgojek\b|gocar|\bgrab\b|grabcar|bluebird|blue bird|\btaksi\b/i,'Transport','Taksi online',0.92],
+  [/bensin|pertamina|shell|\bspbu\b|parkir|\btol\b|kereta|\bkrl\b|\bmrt\b/i,'Transport','Motor',0.85],
+  [/\btransport\b/i,'Transport','Others',0.70],
+  [/\bgaji\b|salary|payroll/i,'Salary','Monthly',0.95],
+  [/transfer masuk/i,'Salary','Others',0.65],
+  [/\bbibit\b|bareksa|reksa\s*dana|stockbit|\bsaham\b|pluang/i,'Investment Return','Mutual Fund',0.92],
+  [/\bemas\b|logam mulia|\bantam\b/i,'Investment Return','Gold',0.88],
+  [/\binvest/i,'Investment Return','Capital Gain',0.72],
+  [/\bpln\b|listrik|\btoken\b listrik|\bpdam\b|\bair\b/i,'Utilities','Electricity',0.92],
+  [/indihome|\bwifi\b|internet|telkom|first ?media|biznet/i,'Utilities','Internet',0.90],
+  [/\bpulsa\b|paket data/i,'Utilities','Phone',0.85],
+  [/netflix|spotify|youtube ?premium|disney\+?|hbo|openai|chatgpt|google ?one|googleads|adobe|canva/i,'Subscription','Software',0.95],
+  [/langganan|subscription/i,'Subscription','Others',0.75],
+  [/\bkfc\b|\bmcd\b|mcdonald|starbucks|\bfore\b|kopi|coffee|cafe|resto|warteg|warung|dimsum|\bmie\b|\bbakmi\b/i,'Food','Meal',0.90],
+  [/\bfood\b|\bmakan\b|gofood|grabfood/i,'Food','Meal',0.78],
+  [/rumah sakit|klinik|apotek|apotik|\bdokter\b|\bobat\b|\bbpjs\b|kimia farma|guardian/i,'Medical','Doctor',0.90],
+  [/\btiket\b|\bhotel\b|airbnb|liburan|wisata|vacation|fastboat|penida/i,'Vacation','Others',0.85],
+  [/tokopedia|shopee|lazada|\bblibli\b|\bbaju\b|\bsepatu\b|miniso|elektronik/i,'Shopping','Clothings',0.88],
+  [/salon|skincare|sunscreen|parfum|selfcare|self ?care/i,'Self Care','Others',0.88]
 ];
 function localParse(text){
   const res=[]; if(!text) return res;
@@ -3829,26 +3847,40 @@ function localParse(text){
     const amt=parseInt(am[1].replace(/[.,]/g,''),10); if(!amt||amt<1000) return;
     const dirHit=/(masuk|kredit|credit|gaji|salary|cr\b|\+)/i.test(line);
     const dir=dirHit?'in':'out';
-    let cat='Lainnya', sub='Others', kwHit=false;
-    for(const [re,c,s] of KW_CAT){ if(re.test(line)){ cat=c; sub=s; kwHit=true; break; } }
+    // Cocokkan kategori + rekam bobot keyakinan aturan yang memicu.
+    let cat='Lainnya', sub='Others', catWeight=0, subMatched=false, matches=0;
+    for(const [re,c,s,w] of KW_CAT){
+      if(re.test(line)){
+        matches++;
+        if(!catWeight){ cat=c; sub=s; catWeight=w; subMatched=true; }
+      }
+    }
     const dm=line.match(/(\d{1,2})[\/\-\s](jan|feb|mar|apr|mei|may|jun|jul|agu|aug|sep|okt|oct|nov|des|dec)/i);
     const date=dm?`${dm[1].padStart(2,'0')} ${dm[2].slice(0,3).replace(/may/i,'Mei').replace(/aug/i,'Agu').replace(/oct/i,'Okt').replace(/dec/i,'Des')}`:'—';
     const tm=line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
     const time=tm?`${tm[1].padStart(2,'0')}:${tm[2]}`:'';
-    // Confidence bertingkat (bukan datar 60%): dihitung dari kekuatan sinyal yang
-    // benar-benar ditemukan di baris — kategori dari kata kunci, kejelasan nominal
-    // (format ribuan Rp), ada tanggal, ada waktu, dan arah in/out yang eksplisit.
-    // Hasil di-clamp ke rentang 0.35–0.9 supaya jujur: parser lokal tak pernah
-    // seyakin AI, tapi tetap membedakan baris yang jelas vs yang menebak.
-    let conf=0.35;
-    if(kwHit) conf+=0.30;                                   // kategori dikenali dari kata kunci
-    if(/[.,]\d{3}/.test(am[1])) conf+=0.12;                 // nominal berformat ribuan (lebih pasti angka uang)
-    if(dm) conf+=0.10;                                      // ada tanggal
-    if(time) conf+=0.05;                                    // ada waktu
-    if(dirHit) conf+=0.08;                                  // arah masuk/keluar eksplisit
-    const descLen=line.replace(am[0],'').replace(/[^A-Za-z]/g,'').length;
-    if(descLen>=6) conf+=0.05;                              // ada deskripsi merchant yang memadai
-    conf=Math.max(0.35,Math.min(0.9,Math.round(conf*100)/100));
+    // ---- CONFIDENCE = keyakinan KECOCOKAN transaksi ↔ kategori/sub-kategori ----
+    // Bukan kelengkapan tanggal/waktu/format angka (itu tak menentukan benar/salahnya
+    // kategori). Dasarnya: bobot aturan kata kunci yang memicu kategori.
+    //   - Tidak ada kata kunci cocok → "Lainnya": keyakinan rendah (0.30).
+    //   - Ada kata kunci → pakai bobot aturannya (0.70–0.95).
+    // Penyesuaian kecil:
+    //   - >1 kategori berbeda ikut cocok → ada ambiguitas, turunkan sedikit.
+    //   - Sub-kategori cuma default generik ('Others') → keyakinan sub lebih rendah,
+    //     sehingga confidence gabungan sedikit turun.
+    let conf;
+    if(!catWeight){
+      conf=0.30;                                  // "Lainnya" — tak ada sinyal kategori
+    } else {
+      conf=catWeight;
+      if(matches>1) conf-=0.08;                   // beberapa kategori bersaing → kurang pasti
+      const subGeneric=(sub==='Others');
+      conf-= subGeneric?0.07:0;                   // sub-kategori tak spesifik → sedikit turun
+      // gabungkan: rata-rata tertimbang keyakinan kategori & sub-kategori
+      const subConf = subGeneric?0.6:catWeight;
+      conf=(conf*0.7)+(subConf*0.3);
+    }
+    conf=Math.max(0.25,Math.min(0.95,Math.round(conf*100)/100));
     res.push({sender:(line.replace(am[0],'').replace(/[^A-Za-z0-9 &.\-]/g,' ').replace(/\s+/g,' ').trim().slice(0,40))||'Transaksi '+(++i), note:'', amt, date, time, dir, cat, sub, conf, save:/(tabung|saving|invest|bibit|reksa)/i.test(line)});
   });
   return res;
@@ -3971,13 +4003,30 @@ function parseJagoText(text){
     if(mkw){ source=joined.slice(0,mkw.index).trim(); detail=joined.slice(mkw.index).trim(); }
     else { source=mid[0]||''; }
     const pc=pocketToCat(pocket);
-    // Confidence bertingkat untuk parser terstruktur: dasar tinggi (0.85) karena
-    // kolom terbaca rapi; naik bila source & detail keduanya kebaca, turun sedikit
-    // bila blok minim teks (hanya angka) sehingga deskripsi lemah.
-    let conf=0.85;
-    if(source && detail && detail!==source) conf+=0.05;
-    if(!source && !detail) conf-=0.15;
-    conf=Math.max(0.6,Math.min(0.95,Math.round(conf*100)/100));
+    // ---- CONFIDENCE = keyakinan KECOCOKAN transaksi ↔ kategori (dari nama kantong) ----
+    // Kategori di sini diturunkan dari NAMA KANTONG (bukan analisis merchant), jadi:
+    //   - dasar 0.75: kantong = petunjuk kategori yang lumayan, tapi tak dijamin benar
+    //     untuk tiap transaksi (mis. beli OpenAI dari "Kantong Utama").
+    //   - Bila teks merchant/detail JUGA cocok kata kunci → kategori (KW_CAT) yang
+    //     kategorinya SAMA dengan kantong → sangat yakin (naik).
+    //   - Bila merchant menunjuk kategori LAIN dari kantong → kemungkinan salah label,
+    //     turunkan keyakinan (biar user segera meninjau baris ini).
+    //   - Transaksi transfer/internal (Antar Kantong, Bunga, Pajak) sangat pasti.
+    const hay=[source,detail].filter(Boolean).join(' ');
+    let kwCat=null;
+    for(const [re,c] of KW_CAT){ if(re.test(hay)){ kwCat=c; break; } }
+    let conf=0.75;
+    if(/Antar Kantong|Setor Tabungan|Tarik Tabungan|Bunga|Pajak/i.test(pc[0]) || /Tambah Uang Kantong|Pindah uang|Bunga|Pajak Bunga/i.test(hay)){
+      conf=0.95;                                  // transfer/bunga/pajak: struktural, hampir pasti
+    } else if(kwCat && kwCat===pc[0]){
+      conf=0.93;                                  // kantong & merchant sepakat → sangat yakin
+    } else if(kwCat && kwCat!==pc[0]){
+      conf=0.55;                                  // merchant menunjuk kategori lain → mungkin salah
+    } else {
+      conf=0.75;                                  // hanya berdasar kantong, merchant tak informatif
+    }
+    if(!source && !detail) conf-=0.10;            // blok minim teks → sedikit turun
+    conf=Math.max(0.4,Math.min(0.97,Math.round(conf*100)/100));
     res.push({
       sender:source||detail||'Transaksi', source, detail,
       note:'', amt, balance,
