@@ -5,6 +5,19 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.15] - 2026-07-01
+
+### Diperbaiki
+- **Tautan undangan WhatsApp tidak lagi "connection timed out".** Sebelumnya
+  beberapa jalur masih memakai domain contoh `atur.app` (`atur.app/join?code=…`
+  dan `atur.app/undang/…`) yang bukan domain aplikasi sehingga saat pasangan
+  mengklik tautan, browser gagal menghubungi domain tersebut. Kini SEMUA tautan
+  undangan (tombol "Kirim undangan WhatsApp", `waLink`, dan tombol bagikan pada
+  onboarding Berdua) memakai domain aktif lewat
+  `location.origin + location.pathname + '?join=' + code`, konsisten dengan
+  format `?join=` yang sudah ditangani `routeAfterAuth`. Catatan teknis pada
+  layar Hubungkan juga disesuaikan agar tidak lagi menyebut `atur.app`.
+
 ## [1.11.14] - 2026-07-01
 
 ### Ditambahkan
@@ -225,3 +238,4 @@ alter table household_members add column if not exists display_name text;
 [1.11.12]: https://github.com/ameliarby/ATUR
 [1.11.13]: https://github.com/ameliarby/ATUR
 [1.11.14]: https://github.com/ameliarby/ATUR
+[1.11.15]: https://github.com/ameliarby/ATUR
