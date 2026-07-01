@@ -580,6 +580,31 @@
   .budg-edit-prefix{font-size:13.5px;font-weight:700;color:#6B6880;flex:none;}
   .budg-cap-edit{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;outline:none;width:100%;}
   .budg-save-btn{flex:none;border:none;color:#fff;font-size:13px;font-weight:700;border-radius:11px;height:40px;padding:0 16px;cursor:pointer;}
+  /* Rincian belanja harian per kategori (drill kartu pagu) */
+  .budg-card{cursor:pointer;}
+  .budg-card.detail-open{background:#FBFBFE;}
+  .bd-hint{display:flex;align-items:center;gap:6px;margin-top:11px;font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;user-select:none;}
+  .bd-hint svg{width:14px;height:14px;flex:none;}
+  .bd-hint-chev{margin-left:auto;display:inline-flex;transition:transform .2s ease;}
+  .bd-hint-chev svg{width:15px;height:15px;}
+  .bd-hint-hide{display:none;}
+  .budg-card.detail-open .bd-hint{color:var(--ink);}
+  .budg-card.detail-open .bd-hint-show{display:none;}
+  .budg-card.detail-open .bd-hint-hide{display:inline;}
+  .budg-card.detail-open .bd-hint-chev{transform:rotate(90deg);}
+  .budg-detail{margin-top:13px;padding-top:13px;border-top:1px solid #ECEBF4;}
+  .bd-empty{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);}
+  .bd-empty svg{width:14px;height:14px;flex:none;}
+  .bd-head{display:flex;gap:8px;margin-bottom:12px;}
+  .bd-stat{flex:1;background:#F6F6FB;border-radius:11px;padding:8px 6px;text-align:center;min-width:0;}
+  .bd-sv{font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bd-sl{font-size:9.5px;font-weight:600;color:var(--muted);margin-top:2px;}
+  .bd-list{display:flex;flex-direction:column;gap:7px;}
+  .bd-row{display:flex;align-items:center;gap:9px;}
+  .bd-day{font-size:11px;font-weight:700;color:#6B6880;width:52px;flex:none;font-variant-numeric:tabular-nums;}
+  .bd-bar{flex:1;min-width:0;height:7px;background:#EEEDF5;border-radius:999px;overflow:hidden;}
+  .bd-bar-fill{display:block;height:100%;border-radius:999px;}
+  .bd-amt{font-size:11.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;flex:none;text-align:right;min-width:82px;}
   /* Berdua: pembagian tugas (PIC) */
   .hh-note{display:flex;gap:9px;align-items:flex-start;font-size:11.5px;line-height:1.5;color:#7A5340;background:#FBF1EA;border:1px solid #F0DAC9;border-radius:14px;padding:11px 13px;margin-bottom:14px;}
   .hh-group{margin-bottom:6px;}
@@ -938,6 +963,32 @@
   .conf{font-size:10px;font-weight:800;border-radius:7px;padding:4px 8px;display:flex;align-items:center;gap:4px;margin-left:auto;}
   .conf::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
   .conf.hi{color:#15924F;background:#EAF7F0;} .conf.mid{color:#B45309;background:#FEF3E2;} .conf.lo{color:#C2410C;background:#FDEEE7;}
+  /* ===== Tinjau AI: pisah "Perlu ditinjau" vs "Sudah terklasifikasi" ===== */
+  .imp-tally{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;}
+  .imp-chip{font-size:11px;font-weight:800;border-radius:999px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px;border:1.4px solid transparent;font-family:inherit;cursor:pointer;transition:transform .08s,box-shadow .12s,border-color .12s;-webkit-tap-highlight-color:transparent;}
+  .imp-chip:active{transform:scale(.96);}
+  .imp-chip svg{width:13px;height:13px;}
+  .imp-chip.need{color:#C2410C;background:#FDEEE7;}
+  .imp-chip.ok{color:#15924F;background:#EAF7F0;}
+  .imp-chip.all{color:#475569;background:#EEF0F5;}
+  .imp-chip.need.on{border-color:#C2410C;box-shadow:0 2px 8px rgba(194,65,7,.22);}
+  .imp-chip.ok.on{border-color:#15924F;box-shadow:0 2px 8px rgba(21,146,79,.22);}
+  .imp-group-hd{display:flex;align-items:center;gap:9px;margin:16px 2px 8px;padding:9px 12px;border-radius:12px;}
+  .imp-group-hd .igh-ic{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:50%;flex:none;}
+  .imp-group-hd .igh-ic svg{width:14px;height:14px;}
+  .imp-group-hd .igh-t{font-size:13.5px;font-weight:800;}
+  .imp-group-hd .igh-t b{font-weight:900;}
+  .imp-group-hd .igh-s{font-size:11px;font-weight:600;margin-left:auto;opacity:.85;}
+  .imp-group-hd.need{background:#FEF4EC;color:#9A3412;}
+  .imp-group-hd.need .igh-ic{background:#F97316;color:#fff;}
+  .imp-group-hd.ok{background:#EDF7F1;color:#15924F;}
+  .imp-group-hd.ok .igh-ic{background:#15924F;color:#fff;}
+  .imp-card.need-review{border-color:#F7C9A6;background:linear-gradient(180deg,#FFFBF7,#FFFFFF);}
+  .imp-card.need-review .imp-sum-meta .need-cat{font-style:normal;font-weight:800;color:#C2410C;}
+  .imp-review-hint{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:600;color:#9A3412;background:#FEF4EC;border:1px solid #F7D9C0;border-radius:11px;padding:9px 11px;margin:2px 0 10px;line-height:1.45;}
+  .imp-review-hint svg{width:15px;height:15px;flex:none;margin-top:1px;}
+  .imp-lbl .req{color:#DC2626;font-weight:900;}
+  .imp-sel.need{border-color:#F59E0B;box-shadow:0 0 0 2px #FEF3C7;}
   .imp-save{display:flex;align-items:center;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid #F0EFF6;font-size:12px;font-weight:600;color:#3A3650;cursor:pointer;}
   .imp-save input{width:17px;height:17px;accent-color:#0F766E;cursor:pointer;}
   .imp-confirm{position:sticky;bottom:0;width:100%;border:none;border-radius:14px;padding:15px;margin-top:6px;background:var(--accent,#2563EB);color:#fff;font-family:inherit;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:var(--sh-md);}
@@ -1381,13 +1432,30 @@ const I = {
 
 /* ===== taxonomy (Category -> Sub-category) refer Amel_Expense ===== */
 /* ---------- shared chart data ---------- */
-const months = ['Jan','Feb','Mar','Apr','Mei','Jun'];
-const monthsFull = ['Januari','Februari','Maret','April','Mei','Juni'];
-const income  = [0,0,0,0,0,0]; // mulai 0 — terisi dari input manual / e-statement
-const expense = [0,0,0,0,0,0]; // mulai 0 — terisi dari input manual / e-statement
+const months = (function(){
+  // Bulan hidup mengikuti waktu nyata: Jan s/d bulan berjalan (tahun demo 2026).
+  // Begitu kalender maju ke bulan baru, section bulan itu otomatis muncul —
+  // tidak lagi dipatok ke bulan data terakhir.
+  const ALL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const DEMO_YEAR=2026;
+  const now=new Date();
+  const upto = now.getFullYear()>DEMO_YEAR ? 11 : (now.getFullYear()<DEMO_YEAR ? 5 : now.getMonth());
+  return ALL.slice(0, Math.max(6, upto+1)); // minimal Jan–Jun agar layout & data lama aman
+})();
+const monthsFull = (function(){
+  const ALL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  return ALL.slice(0, months.length);
+})();
+const income  = months.map(()=>0); // mulai 0 — terisi dari input manual / e-statement
+const expense = months.map(()=>0); // mulai 0 — terisi dari input manual / e-statement
 const MAXBAR  = 70;
-// fokus bulan bersama hero & grafik (index ke months[]). Default: bulan berjalan (Jun = index terakhir).
-let focusMonth = months.length-1;
+// fokus bulan bersama hero & grafik (index ke months[]). Default: bulan berjalan
+// (mengikuti waktu nyata; bila di luar rentang data, dipatok ke bulan terakhir yang ada).
+let focusMonth = (function(){
+  const DEMO_YEAR=2026; const now=new Date();
+  const rm = now.getFullYear()>DEMO_YEAR ? 11 : (now.getFullYear()<DEMO_YEAR ? 0 : now.getMonth());
+  return Math.max(0, Math.min(months.length-1, rm));
+})();
 
 // Seri per-bulan dalam Rupiah. TIAP bulan memakai total live per-bulan dari
 // gabungan semua sumber (input manual + e-statement), agar grafik akurat per bulan
@@ -1496,6 +1564,8 @@ const cats=[
   {nm:'Makanan & Minuman', pc:17, c:'#F97316'},
   {nm:'Transportasi', pc:14, c:'#9A3412'},
   {nm:'IPL & Utilitas', pc:12, c:'#C4B5FD'},
+  {nm:'Belanja & Perawatan', pc:0, c:'#DB2777'},
+  {nm:'Pajak & Biaya', pc:0, c:'#65A30D'},
   {nm:'Lainnya', pc:10, c:'#E2E0EC'}
 ];
 function donutSVG(){
@@ -1802,18 +1872,18 @@ function budgetCardInner(){
   const pc=Math.min(100,Math.round(totSpent/totCap*100));
   const over=rows.filter(b=>(b.cap||0)>0 && spentOf(b)>b.cap).length;
   // Pagu harian: sisa uang per hari = (pagu − terpakai) ÷ sisa hari bulan ini.
-  // Bulan acuan = focusMonth pada tahun berjalan; bila bulan berjalan, pakai
-  // hari tersisa sampai akhir bulan, selain itu pakai jumlah hari penuh bulan itu.
-  // Sisa hari mengikuti waktu nyata:
-  //  · bulan lampau  → 0 (bulan sudah selesai, tidak ada pembagian per hari)
-  //  · bulan berjalan → hari tersisa sampai akhir bulan (live)
-  //  · bulan depan    → jumlah hari penuh bulan itu
+  // Acuan "hari" SELALU mengikuti kalender nyata — bukan posisi dataset. Aturannya:
+  //  · bulan sebelum bulan nyata → SELESAI: 0 hari, tampilkan "bulan selesai"
+  //                                 (tanpa pembagian/penanda harian sama sekali)
+  //  · bulan = bulan nyata        → BERJALAN: sisa hari live sampai akhir bulan,
+  //                                 barulah muncul penanda "· N hari"
+  //  · bulan setelah bulan nyata  → belum mulai: pakai jumlah hari penuh bulan itu
   const _now=new Date();
   const _fy=_now.getFullYear();
-  const _curM=_now.getMonth();
+  const _realM=_now.getMonth();
   const _dim=new Date(_fy, focusMonth+1, 0).getDate();
-  const _isPast = (focusMonth < _curM); // demo tahun sama (2026); fokus < bulan kini = lampau
-  const _isCur  = (focusMonth === _curM);
+  const _isPast = (focusMonth < _realM);   // bulan sudah lewat secara kalender = selesai
+  const _isCur  = (focusMonth === _realM);  // bulan yang benar-benar sedang berjalan
   const _daysLeft = _isPast ? 0 : (_isCur ? Math.max(1,_dim-_now.getDate()+1) : _dim);
   const phRows=rows.filter(b=>(b.cap||0)>0);
   const phStrip=phRows.length? `<div class="ph-strip">${phRows.map(b=>{
@@ -2181,11 +2251,14 @@ function openBerduaLock(){
 
 /* ===== detail-screen data ===== */
 const sources5 = ['BCA','Mandiri','GoPay','OVO','Bibit'];
-const monthRecap = {
-  'Jan':{in:'0',out:'0'},'Feb':{in:'0',out:'0'},
-  'Mar':{in:'0',out:'0'},'Apr':{in:'0',out:'0'},
-  'Mei':{in:'0',out:'0'},'Jun':{in:'0',out:'0'}
-};
+const monthRecap = (function(){
+  // Recap per-bulan mengikuti daftar bulan hidup (months). Nilai awal 0;
+  // total riil tetap diturunkan dari transaksi. Mencegah key hilang saat
+  // bulan baru muncul (mis. 'Jul') sehingga pill bulan tidak error.
+  const m={};
+  months.forEach(nm=>{ m[nm]={in:'0',out:'0'}; });
+  return m;
+})();
 // Jun 2026 starts on Monday (demo); income/expense day markers
 const calMarks = { // day -> {in,out}
   3:{out:1},5:{in:1},8:{out:1},12:{in:1,out:1},15:{out:1},18:{in:1},
@@ -2316,6 +2389,19 @@ const SUB_LABEL_ID = {
 function catLabel(cat){ return CAT_LABEL_ID[cat] || cat || 'Lainnya'; }
 // Label tampilan sub-kategori (Bahasa Indonesia). Fallback ke nilai asli.
 function subLabel(sub){ return SUB_LABEL_ID[sub] || sub || ''; }
+// Peta balik label Indonesia -> kunci taksonomi Inggris (mis. 'Makanan & Minuman' -> 'Food').
+// Dibangun sekali dari CAT_LABEL_ID agar kategori transaksi & nama pagu SELALU dapat
+// dicocokkan ke satu kunci kanonik — apa pun bentuk penyimpanannya (Inggris atau ID).
+const CAT_LABEL_TO_KEY = (function(){ const m={}; Object.keys(CAT_LABEL_ID).forEach(k=>{ m[CAT_LABEL_ID[k]]=k; }); return m; })();
+// Kanonikkan sebuah kategori ke kunci taksonomi Inggris. Menerima kunci Inggris
+// ('Food'), label Indonesia ('Makanan & Minuman'), atau nama pagu lama. Ini kunci
+// agar "terpakai" per kartu pagu = pengeluaran kategori ITU saja (bukan gabungan).
+function canonCat(cat){
+  if(!cat) return '';
+  if(CAT_LABEL_ID[cat]!==undefined) return cat;      // sudah kunci Inggris
+  if(CAT_LABEL_TO_KEY[cat]!==undefined) return CAT_LABEL_TO_KEY[cat]; // label ID -> kunci
+  return cat;                                          // nama lain apa adanya
+}
 // Builder <option> kategori/sub-kategori untuk dropdown Tinjau AI — dipakai bersama
 // oleh scrImport() (render awal) & renderTop() (saat ganti pilihan), agar tak ada
 // duplikasi logika dan tetap dalam satu cakupan modul (mencegah ReferenceError).
@@ -2533,8 +2619,8 @@ function contribution(){
 /* ===== Berdua: Arus Kas Keluarga (live, gaya Arus Kas mode Sendiri) =====
  * APP TRACKING — net = pemasukan tercatat − pengeluaran tercatat (bukan saldo bank).
  * Bulan berjalan (Jun) dihitung LIVE dari sharedTxns bertanda 'shared'. */
-const FAMILY_BASE_IN  = [0,0,0,0,0,0]; // pemasukan rumah (juta) per bulan
-const FAMILY_BASE_OUT = [0,0,0,0,0,0];  // pengeluaran rumah (juta) per bulan
+const FAMILY_BASE_IN  = months.map(()=>0); // pemasukan rumah (juta) per bulan
+const FAMILY_BASE_OUT = months.map(()=>0);  // pengeluaran rumah (juta) per bulan
 function familySeries(){
   return months.map((m,i)=>{
     let inn, out;
@@ -3385,6 +3471,21 @@ function scrBudget(){
           <button class="fund-del" data-del-budget="${bi}" aria-label="Hapus">${I.trash}</button>
         </div>
         <div class="ratio-track" style="height:8px;margin-top:10px"><div style="width:${pc}%;height:100%;background:${barc};border-radius:999px"></div></div>
+        <div class="bd-hint">${I.cal}<span class="bd-hint-show">Rincian belanja harian</span><span class="bd-hint-hide">Sembunyikan rincian</span><span class="bd-hint-chev">${I.chev}</span></div>
+        ${(()=>{ const bd=budgetDailyBreakdown(b);
+          if(!bd.nDays) return `<div class="budg-detail" id="budgDetail${bi}" hidden><div class="bd-empty">${I.cal} Belum ada belanja ${catLabel(b.nm)} bulan ini.</div></div>`;
+          const rows=bd.days.map(d=>{ const w=bd.peak>0?Math.max(6,Math.round(d.amt/bd.peak*100)):0;
+            return `<div class="bd-row"><span class="bd-day">${d.label}</span><span class="bd-bar"><span class="bd-bar-fill" style="width:${w}%;background:${barc}"></span></span><span class="bd-amt">Rp ${jtfmt(d.amt)}</span></div>`;
+          }).join('');
+          return `<div class="budg-detail" id="budgDetail${bi}" hidden>
+            <div class="bd-head">
+              <div class="bd-stat"><div class="bd-sv">Rp ${jtfmt(bd.avg)}</div><div class="bd-sl">rata-rata/hari</div></div>
+              <div class="bd-stat"><div class="bd-sv">${bd.nDays}</div><div class="bd-sl">hari ada belanja</div></div>
+              <div class="bd-stat"><div class="bd-sv">Rp ${jtfmt(bd.peak)}</div><div class="bd-sl">hari tertinggi</div></div>
+            </div>
+            <div class="bd-list">${rows}</div>
+          </div>`;
+        })()}
         <div class="budg-editrow" id="budgEdit${bi}" hidden>
           <label class="budg-edit-lbl">Pagu bulanan</label>
           <div class="budg-edit-field">
@@ -3564,6 +3665,7 @@ let aiParseMeta={ source:'', lineCount:0, mode:'', bank:'', defaultPic:'reza', v
 let aiExpandedRows=new Set(); // baris tinjau yang sedang dibuka (editable); default ringkas/tertutup
 let aiDateFilter=null; // null = semua tanggal; selain itu, string tanggal (mis. '12 Jun') untuk memfilter baris tinjau
 let aiDateFrom=null, aiDateTo=null; // saringan PERIODE tanggal (indeks pada daftar tanggal terurut); null = batas terbuka
+let aiReviewFilter='all'; // saringan status: 'all' | 'need' (perlu ditinjau) | 'ok' (sudah yakin) — chip di banner bisa diklik
 
 /* ===== Progress analisa e-statement yang persisten =====
    Saat user mengunggah PDF lalu menekan back / pindah halaman, proses analisa
@@ -4022,13 +4124,44 @@ function detectTransfer(text){
   if(/Tarik Uang Kantong/i.test(s)) return ['Tarik Tabungan','Tarik'];
   return null;
 }
+// Normalisasi aliran teks e-statement agar SERAGAM baik dari PyMuPDF (satu token
+// per baris) MAUPUN pdf.js (semua item satu halaman digabung 1 baris dgn spasi).
+// Kita SISIPKAN newline di batas struktural: sebelum tanggal, waktu, nama kantong,
+// kata kunci jenis transaksi, "ID#", dan di sekitar setiap angka (Jumlah/Saldo).
+// Tanpa ini, layout inline pdf.js membuat reDate (butuh tanggal sendirian di baris)
+// TIDAK PERNAH cocok → 0 transaksi → aplikasi salah fallback ke localParse.
+function normalizeJagoStream(text){
+  let t=String(text||'').replace(/\r/g,'\n');
+  const MON='Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des';
+  // 0) BUANG tanggal buka rekening ("Akun Aktif, mulai 25 Mar 2025") — ini BUKAN
+  //    transaksi. Bila dibiarkan, tanggalnya lolos reDate & memicu baris palsu
+  //    (blok berikutnya = angka ringkasan Saldo Sebelumnya/Pemasukan). Hapus
+  //    seluruh frasa termasuk tanggalnya sebelum langkah split di bawah.
+  t=t.replace(new RegExp('Akun Aktif,\\s*mulai\\s+\\d{1,2}\\s+(?:'+MON+')\\s+20\\d{2}','gi'),' ');
+  // 1) newline SEBELUM setiap "DD Mon 20YY"
+  t=t.replace(new RegExp('\\s*(?=\\b\\d{1,2}\\s+(?:'+MON+')\\s+20\\d{2}\\b)','gi'),'\n');
+  // 2) newline SETELAH tanggal (pisahkan dari waktu/teks berikutnya)
+  t=t.replace(new RegExp('(\\b\\d{1,2}\\s+(?:'+MON+')\\s+20\\d{2}\\b)\\s*','gi'),'$1\n');
+  // 3) newline di sekitar waktu "HH.MM" / "HH:MM(:SS)"
+  t=t.replace(/\s*\b([01]?\d|2[0-3])[.:]([0-5]\d)(?:[.:]([0-5]\d))?\b\s*/g,'\n$1.$2$3\n');
+  // 4) newline SEBELUM kata kunci jenis transaksi
+  t=t.replace(/\s*(?=(Pembayaran QRIS|Transaksi POS|Transfer Keluar|Transfer Masuk|Tambah Uang Kantong|Pindah uang antar Kantong|Tarik Uang Kantong|Setor Uang Kantong|Isi Saldo E-Wallet|Pajak Bunga|Bunga)\b)/gi,'\n');
+  // 5) newline SEBELUM "ID#" dan SESUDAH kode ID (agar Catatan berdiri sendiri)
+  t=t.replace(/\s*(ID#\s*[0-9A-Za-z-]+)\s*/g,'\n$1\n');
+  // 6) newline di sekitar ANGKA rupiah (Jumlah bertanda & Saldo)
+  t=t.replace(/\s*(-?\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*/g,'\n$1\n');
+  // 7) newline sebelum header nama kantong bila menempel dgn "ID Kantong"
+  t=t.replace(/\s*(?=ID Kantong\b)/g,'\n');
+  return t.replace(/\n{2,}/g,'\n');
+}
 function parseJagoText(text){
   if(!text || !/Bank Jago|KANTONG|Kantong Utama|Laporan Keuangan/i.test(text)) return [];
+  text=normalizeJagoStream(text);
   const lines=text.replace(/\r/g,'\n').split('\n').map(s=>s.trim()).filter(Boolean);
   const reDate=/^(\d{1,2})\s+(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des)\s+20\d{2}$/i;
   const reTime=/^([01]?\d|2[0-3])[.:]([0-5]\d)(?:[.:]([0-5]\d))?$/;
-  // angka format Indonesia: "-900.000", "9.125", "42.230.074,50"
-  const reNum=/^-?\d{1,3}(\.\d{3})*(,\d+)?$|^-?\d+(,\d+)?$/;
+  // angka format Indonesia: "-900.000", "9.125", "42.230.074,50", "+386" (bunga kecil)
+  const reNum=/^[+-]?\d{1,3}(\.\d{3})*(,\d+)?$|^[+-]?\d+(,\d+)?$/;
   // baris non-transaksi (header tabel / ringkasan / footer) yang harus dilewati
   const NOISE=/^(Jago|DUMMY|Laporan Keuangan|www\.|LPS|Dokumen dummy|Mata Uang|Saldo Sebelumnya|Total Pemasukan|Total Pengeluaran|Saldo Akhir|Tanggal & Waktu|Sumber\/Tujuan|Rincian Transaksi|Catatan|Jumlah|Saldo|Akun Aktif|ID Kantong|RINGKASAN|SOROTAN|KANTONG|Total Saldo|Halaman|PT Bank Jago|IDR|This recreated)/i;
   const toNum=(s)=>parseFloat(String(s).replace(/\./g,'').replace(',','.'))||0;
@@ -4063,6 +4196,12 @@ function parseJagoText(text){
     const dir=jumlah<0?'out':'in';
     const amt=Math.abs(Math.round(jumlah));
     if(!amt){ i=j-1; continue; }
+    // GUARD baris palsu: transaksi Jago SELALU punya waktu (HH.MM) tepat setelah
+    // tanggal, atau kata kunci jenis transaksi (Transfer/QRIS/Bunga/…) di bloknya.
+    // Baris ringkasan (Saldo akhir 30 Jun 2026 …, Total Saldo … 31 May 2026) tak
+    // punya waktu & tak punya kata kunci → lewati agar tak jadi transaksi hantu.
+    const hasTxKw=block.some(b=>JAGO_TXKW.test(b));
+    if(!timeFull && !hasTxKw){ i=j-1; continue; }
     // bagian teks sebelum angka: source (sebelum kata kunci jenis) + detail (sesudahnya)
     const mid=block.slice(0,jk).filter(b=>!NOISE.test(b));
     const joined=mid.join(' ').replace(/\s+/g,' ').trim();
@@ -4279,14 +4418,21 @@ function scrImport(stage){
     // --- Indikator diagnostik jalur parser: tampilkan JELAS jalur mana yang dipakai ---
     const dp=parserPathInfo();
     const diagBadge=`<span class="diag-badge ${dp.cls}">${dp.icon} ${esc(dp.label)}</span>`;
-    const diagReason=(dp.tone!=='ok' && aiParseMeta.reason)
-      ? `<div class="diag-reason">Kenapa bukan AI? ${esc(aiParseMeta.reason)}</div>` : '';
     const srcNote = aiParseMeta.mode==='ai' ? `Diurai AI · ${aiParsePreview.length} transaksi`
                   : aiParseMeta.mode==='local' ? `Diurai otomatis (lokal) · ${aiParsePreview.length} transaksi`
                   : `Contoh data · ${aiParsePreview.length} transaksi`;
+    // Hitung berapa yang perlu ditinjau (klasifikasi belum yakin) untuk ringkasan atas.
+    const _needRv=(t)=> (typeof t.conf==='number' && t.conf<0.6) || t.cat==='Other Expense' || t.cat==='Other Income' || !t.cat;
+    const _nRev=aiParsePreview.filter(_needRv).length;
+    const _nOk=aiParsePreview.length-_nRev;
+    const rvChips=`<div class="imp-tally">`
+      +`<button type="button" class="imp-chip need${aiReviewFilter==='need'?' on':''}" data-rvfilter="need" aria-pressed="${aiReviewFilter==='need'}">${I.spark} ${_nRev} perlu ditinjau</button>`
+      +`<button type="button" class="imp-chip ok${aiReviewFilter==='ok'?' on':''}" data-rvfilter="ok" aria-pressed="${aiReviewFilter==='ok'}">${I.check} ${_nOk} sudah yakin</button>`
+      +`${aiReviewFilter!=='all'?`<button type="button" class="imp-chip all" data-rvfilter="all">Tampilkan semua</button>`:''}`
+      +`</div>`;
     return subBar('Tinjau Hasil AI',`${aiParsePreview.length} transaksi terbaca · ketuk untuk mengubah`)+
     `<div class="sub-scroll imp-scroll" id="importScroll">
-      <div class="ai-banner ${dp.tone==='ok'?'':'diag-warn'}">${I.spark}<div style="flex:1"><div class="alert-t">${srcNote} ${diagBadge}</div><div class="alert-s">Ketuk satu baris untuk membuka & mengubah kolomnya. Saring dengan memilih periode tanggal di bawah.</div>${diagReason}</div></div>
+      <div class="ai-banner ${dp.tone==='ok'?'':'diag-warn'}">${I.spark}<div style="flex:1"><div class="alert-t">${srcNote} ${diagBadge}</div><div class="alert-s">Semua transaksi tetap dimasukkan. Yang belum yakin dikelompokkan di <b>Perlu ditinjau</b> — pilih kategori manual di sana.</div>${rvChips}</div></div>
       ${(()=>{ // saringan PERIODE tanggal (Dari … Sampai)
         const ord=aiSortedDates();
         if(ord.length<=1) return '';
@@ -4321,53 +4467,89 @@ function scrImport(stage){
         </div>
         <div class="alert-s" style="margin-top:8px">Berlaku untuk transaksi yang belum diatur per-baris. Kamu tetap bisa mengubah masing-masing di tiap baris.</div>
       </div>` : ''}
-      ${(()=>{ const rowsHTML=aiParsePreview.map((t,i)=>{
-        if(!aiDateInRange((t.date||'').trim())) return '';
-        const open=aiExpandedRows.has(i);
-        const signCls=dirClass(t.dir)==='trf'?'trf':(t.dir==='in'?'in':'out');
-        const signTxt=dirSign(t.dir)+'Rp '+(t.amt||0).toLocaleString('id-ID');
-        const confCls=t.conf>=0.95?'hi':t.conf>=0.9?'mid':'lo';
-        const picked=impSelected.has(i);
-        return `<div class="sec-card imp-card${open?' open':''}${impSelMode?' selmode':''}${picked?' picked':''}" data-imp-row="${i}"${impSelMode?` data-impsel="${i}"`:''}>
-        <button class="imp-summary" data-imp-toggle="${i}" type="button">
-          ${impSelMode?`<span class="selck">${I.check}</span>`:''}
-          <span class="imp-sum-dir ${signCls}">${dirIcon(t.dir)}</span>
-          <span class="imp-sum-main">
-            <span class="imp-sum-desc">${esc(t.sender)||'Transaksi'}</span>
-            <span class="imp-sum-meta">${esc(t.date)||'—'}${t.time?' · '+esc(t.time):''} · ${esc(catLabel(t.cat))}</span>
-          </span>
-          <span class="imp-sum-right">
-            <span class="imp-sum-amt ${signCls}">${signTxt}</span>
-            <span class="conf ${confCls}">AI ${Math.round(t.conf*100)}%</span>
-          </span>
-          <span class="imp-sum-chev">${I.chevdn}</span>
-        </button>
-        <div class="imp-body"${open?'':' hidden'}>
-          <div class="imp-hd">
-            <div class="imp-dirtoggle imp-dirtoggle-3" data-dir-row="${i}">
-              <button class="imp-dirbtn${t.dir==='in'?' on in':''}" data-setdir="in" data-i="${i}" type="button">${I.dlft} Masuk</button>
-              <button class="imp-dirbtn${t.dir==='out'?' on out':''}" data-setdir="out" data-i="${i}" type="button">${I.uprt} Keluar</button>
-              <button class="imp-dirbtn${t.dir==='transfer'?' on trf':''}" data-setdir="transfer" data-i="${i}" type="button">${I.swap} Transfer</button>
+      ${(()=>{
+        // ---- Pisahkan transaksi PERLU DITINJAU (klasifikasi belum yakin) vs SUDAH
+        //      TERKLASIFIKASI (yakin). TIDAK ada transaksi yang dibuang: yang ragu
+        //      tetap ditampilkan, tapi dikelompokkan di atas agar user isi kategori
+        //      manual. Ambang: conf<0.6 ATAU kategori masih 'Other …' (belum jelas).
+        const needsReview=(t)=> (typeof t.conf==='number' && t.conf<0.6) || t.cat==='Other Expense' || t.cat==='Other Income' || !t.cat;
+        const renderRow=(t,i)=>{
+          if(!aiDateInRange((t.date||'').trim())) return '';
+          const open=aiExpandedRows.has(i);
+          const signCls=dirClass(t.dir)==='trf'?'trf':(t.dir==='in'?'in':'out');
+          const signTxt=dirSign(t.dir)+'Rp '+(t.amt||0).toLocaleString('id-ID');
+          const review=needsReview(t);
+          // Badge: hijau≥0.9, kuning 0.6–0.9, oranye "Perlu tinjau" <0.6/Other
+          const confCls=review?'lo':(t.conf>=0.9?'hi':'mid');
+          const confTxt=review?'Perlu tinjau':('AI '+Math.round((t.conf||0)*100)+'%');
+          const picked=impSelected.has(i);
+          return `<div class="sec-card imp-card${open?' open':''}${impSelMode?' selmode':''}${picked?' picked':''}${review?' need-review':''}" data-imp-row="${i}"${impSelMode?` data-impsel="${i}"`:''}>
+          <button class="imp-summary" data-imp-toggle="${i}" type="button">
+            ${impSelMode?`<span class="selck">${I.check}</span>`:''}
+            <span class="imp-sum-dir ${signCls}">${dirIcon(t.dir)}</span>
+            <span class="imp-sum-main">
+              <span class="imp-sum-desc">${esc(t.sender)||'Transaksi'}</span>
+              <span class="imp-sum-meta">${esc(t.date)||'—'}${t.time?' · '+esc(t.time):''} · ${review?'<em class="need-cat">Pilih kategori</em>':esc(catLabel(t.cat))}</span>
+            </span>
+            <span class="imp-sum-right">
+              <span class="imp-sum-amt ${signCls}">${signTxt}</span>
+              <span class="conf ${confCls}">${confTxt}</span>
+            </span>
+            <span class="imp-sum-chev">${I.chevdn}</span>
+          </button>
+          <div class="imp-body"${open?'':' hidden'}>
+            <div class="imp-hd">
+              <div class="imp-dirtoggle imp-dirtoggle-3" data-dir-row="${i}">
+                <button class="imp-dirbtn${t.dir==='in'?' on in':''}" data-setdir="in" data-i="${i}" type="button">${I.dlft} Masuk</button>
+                <button class="imp-dirbtn${t.dir==='out'?' on out':''}" data-setdir="out" data-i="${i}" type="button">${I.uprt} Keluar</button>
+                <button class="imp-dirbtn${t.dir==='transfer'?' on trf':''}" data-setdir="transfer" data-i="${i}" type="button">${I.swap} Transfer</button>
+              </div>
             </div>
+            ${review?`<div class="imp-review-hint">${I.spark} Kategori belum bisa dipastikan otomatis. Pilih kategori & sub-kategori yang tepat di bawah, lalu simpan.</div>`:''}
+            <div class="imp-grid">
+              <div class="imp-fld imp-half"><label class="imp-lbl">Tanggal</label><input class="imp-inp imp-date" data-i="${i}" type="text" value="${esc(t.date)}" placeholder="DD Mon"></div>
+              <div class="imp-fld imp-half"><label class="imp-lbl">Waktu</label><input class="imp-inp imp-time" data-i="${i}" type="text" value="${esc(t.time)}" placeholder="HH:MM"></div>
+              <div class="imp-fld"><label class="imp-lbl">Deskripsi / Remarks</label><input class="imp-inp imp-desc" data-i="${i}" type="text" value="${esc(t.sender)}" placeholder="Deskripsi transaksi"></div>
+              <div class="imp-fld"><label class="imp-lbl">Catatan</label><input class="imp-inp imp-note" data-i="${i}" type="text" value="${esc(t.note)}" placeholder="Catatan (opsional)"></div>
+              <div class="imp-fld"><label class="imp-lbl">Jumlah (Rp)</label><input class="imp-inp imp-amt-in" data-i="${i}" type="text" inputmode="numeric" value="${t.amt.toLocaleString('id-ID')}" placeholder="0"></div>
+              <div class="imp-fld imp-half"><label class="imp-lbl">Kategori${review?' <span class="req">*</span>':''}</label><select class="imp-sel imp-cat${review?' need':''}" data-i="${i}">${catOptsHTML(t.cat,t.dir)}</select></div>
+              <div class="imp-fld imp-half"><label class="imp-lbl">Sub-kategori</label><select class="imp-sel imp-sub" data-i="${i}">${subOptsHTML(t.cat,t.sub)}</select></div>
+              ${currentMode==='b' ? (()=>{ const rp=PIC_VALID.includes(t.pic)?t.pic:aiParseMeta.defaultPic; return `<div class="imp-fld"><label class="imp-lbl">Penanggung jawab (initial)</label>
+                <div class="pic-pick imp-row-pic" data-i="${i}" style="width:fit-content">
+                  <button type="button" class="pic-opt${rp==='reza'?' on reza':''}" data-rowpic="reza">${picName().reza}</button>
+                  <button type="button" class="pic-opt${rp==='dini'?' on dini':''}" data-rowpic="dini">${picName().dini}</button>
+                </div></div>`; })() : ''}
+            </div>
+            <button class="imp-rowsave" data-imp-rowsave="${i}" type="button" style="background:${accent}">${I.check} Simpan perubahan</button>
           </div>
-          <div class="imp-grid">
-            <div class="imp-fld imp-half"><label class="imp-lbl">Tanggal</label><input class="imp-inp imp-date" data-i="${i}" type="text" value="${esc(t.date)}" placeholder="DD Mon"></div>
-            <div class="imp-fld imp-half"><label class="imp-lbl">Waktu</label><input class="imp-inp imp-time" data-i="${i}" type="text" value="${esc(t.time)}" placeholder="HH:MM"></div>
-            <div class="imp-fld"><label class="imp-lbl">Deskripsi / Remarks</label><input class="imp-inp imp-desc" data-i="${i}" type="text" value="${esc(t.sender)}" placeholder="Deskripsi transaksi"></div>
-            <div class="imp-fld"><label class="imp-lbl">Catatan</label><input class="imp-inp imp-note" data-i="${i}" type="text" value="${esc(t.note)}" placeholder="Catatan (opsional)"></div>
-            <div class="imp-fld"><label class="imp-lbl">Jumlah (Rp)</label><input class="imp-inp imp-amt-in" data-i="${i}" type="text" inputmode="numeric" value="${t.amt.toLocaleString('id-ID')}" placeholder="0"></div>
-            <div class="imp-fld imp-half"><label class="imp-lbl">Kategori</label><select class="imp-sel imp-cat" data-i="${i}">${catOptsHTML(t.cat,t.dir)}</select></div>
-            <div class="imp-fld imp-half"><label class="imp-lbl">Sub-kategori</label><select class="imp-sel imp-sub" data-i="${i}">${subOptsHTML(t.cat,t.sub)}</select></div>
-            ${currentMode==='b' ? (()=>{ const rp=PIC_VALID.includes(t.pic)?t.pic:aiParseMeta.defaultPic; return `<div class="imp-fld"><label class="imp-lbl">Penanggung jawab (initial)</label>
-              <div class="pic-pick imp-row-pic" data-i="${i}" style="width:fit-content">
-                <button type="button" class="pic-opt${rp==='reza'?' on reza':''}" data-rowpic="reza">${picName().reza}</button>
-                <button type="button" class="pic-opt${rp==='dini'?' on dini':''}" data-rowpic="dini">${picName().dini}</button>
-              </div></div>`; })() : ''}
-          </div>
-          <button class="imp-rowsave" data-imp-rowsave="${i}" type="button" style="background:${accent}">${I.check} Simpan perubahan</button>
-        </div>
-      </div>`;}).join('');
-        return rowsHTML.trim() ? rowsHTML : `<div class="imp-empty">Tidak ada transaksi pada periode ini.</div>`;
+        </div>`;
+        };
+        // Indeks yang lolos saringan periode
+        const idxInRange=aiParsePreview.map((t,i)=>i).filter(i=>aiDateInRange((aiParsePreview[i].date||'').trim()));
+        if(!idxInRange.length) return `<div class="imp-empty">Tidak ada transaksi pada periode ini.</div>`;
+        const reviewIdx=idxInRange.filter(i=>needsReview(aiParsePreview[i]));
+        const okIdx=idxInRange.filter(i=>!needsReview(aiParsePreview[i]));
+        let html='';
+        // Saringan status dari chip: 'need' hanya tampilkan perlu ditinjau, 'ok'
+        // hanya yang sudah yakin, 'all' tampilkan keduanya (dengan header grup).
+        const showNeed=(aiReviewFilter==='all'||aiReviewFilter==='need');
+        const showOk=(aiReviewFilter==='all'||aiReviewFilter==='ok');
+        if(showNeed && reviewIdx.length){
+          html+=`<div class="imp-group-hd need"><span class="igh-ic">${I.spark}</span><span class="igh-t">Perlu ditinjau <b>(${reviewIdx.length})</b></span><span class="igh-s">Pilih kategori manual — tidak ada yang dibuang</span></div>`;
+          html+=reviewIdx.map(i=>renderRow(aiParsePreview[i],i)).join('');
+        }
+        if(showOk && okIdx.length){
+          html+=`<div class="imp-group-hd ok"><span class="igh-ic">${I.check}</span><span class="igh-t">Sudah terklasifikasi <b>(${okIdx.length})</b></span><span class="igh-s">AI yakin — cek sekilas bila perlu</span></div>`;
+          html+=okIdx.map(i=>renderRow(aiParsePreview[i],i)).join('');
+        }
+        if(!html){
+          html=aiReviewFilter==='need'
+            ? `<div class="imp-empty">Tidak ada transaksi yang perlu ditinjau. 🎉</div>`
+            : aiReviewFilter==='ok'
+            ? `<div class="imp-empty">Belum ada transaksi yang sudah yakin diklasifikasi.</div>`
+            : `<div class="imp-empty">Tidak ada transaksi pada periode ini.</div>`;
+        }
+        return html;
       })()}
     </div>
     ${impSelMode?`<div class="selbar-bot" id="imp-selbar">
@@ -4476,13 +4658,20 @@ function monthTotalsForIndex(monthIndex){
  * sehingga setiap fitur otomatis sinkron tiap kali transaksi berubah.
  * ===================================================================== */
 // Peta kategori taksonomi (English) -> nama kategori donut Beranda (ID).
+// WAJIB memetakan SEMUA kategori taksonomi agar tabel Arus Kas & pie chart
+// "Pengeluaran per Kategori" SELALU sinkron (kategori hasil analisa = irisan donut
+// yang sama). Kategori tak terpetakan akan bocor ke "Lainnya" walau labelnya benar.
 const CAT_TO_DONUT = {
   Housing:'Cicilan KPR',
-  Family:'Keluarga', Medical:'Keluarga',
+  Family:'Keluarga', Medical:'Keluarga', Education:'Keluarga',
   Food:'Makanan & Minuman', Groceries:'Makanan & Minuman',
   Transport:'Transportasi', Vacation:'Transportasi',
-  Utilities:'IPL & Utilitas', Subscription:'IPL & Utilitas'
-  // sisanya (Shopping, Investment, Selfcare, Entertainment, Lainnya) -> 'Lainnya'
+  Utilities:'IPL & Utilitas', Subscription:'IPL & Utilitas',
+  // Kategori lain dikelompokkan ke slot donut yang paling relevan (bukan 'Lainnya')
+  Shopping:'Belanja & Perawatan', Selfcare:'Belanja & Perawatan',
+  Entertainment:'Belanja & Perawatan',
+  'Tax/Fee':'Pajak & Biaya', Interest:'Pajak & Biaya',
+  'Other Expense':'Lainnya'
 };
 function donutCatOf(cat){ return CAT_TO_DONUT[cat] || 'Lainnya'; }
 // Transaksi untuk agregasi donut/pagu/PIC: GABUNGAN SEMUA SUMBER, tetapi
@@ -4514,20 +4703,30 @@ function deriveAll(){
     else if(t.dir==='in'){ inn+=v; }
     else{
       out+=v;
-      // donut kategori
-      const dk=donutCatOf(t.cat); byDonut[dk]=(byDonut[dk]||0)+v;
-      // kategori taksonomi mentah (dipakai pagu per-kategori arus kas)
-      const ck=t.cat||'Lainnya'; byCat[ck]=(byCat[ck]||0)+v;
-      // pagu rumah tangga (Berdua)
-      const bk=CAT_TO_BUDGET[t.cat]; if(bk) byBudget[bk]=(byBudget[bk]||0)+v;
+      // Kategori taksonomi kanonik lebih dulu — semua lookup (donut/pagu) memakai ini
+      // agar 'Food' & 'Makanan & Minuman' menyatu ke satu kunci -> per kategori presisi.
+      const ck=canonCat(t.cat)||'Lainnya';
+      // Setoran tabungan/investasi (Investment Return / Setor Tabungan / sub 'saving')
+      // adalah PEMINDAHAN ke pos simpanan, BUKAN belanja. Jangan dimasukkan ke
+      // donut "pengeluaran per kategori" agar chart & label kategori tetap sinkron
+      // (kalau tidak, semua setoran menumpuk di slice 'Lainnya').
+      const isSave=(ck==='Investment Return'||ck==='Setor Tabungan')||((t.sub||'').toLowerCase()==='saving');
+      // donut kategori (hanya belanja nyata)
+      if(!isSave){ const dk=donutCatOf(ck); byDonut[dk]=(byDonut[dk]||0)+v; }
+      // kategori taksonomi kanonik (dipakai pagu per-kategori arus kas)
+      byCat[ck]=(byCat[ck]||0)+v;
+      // pagu rumah tangga (Berdua) — pakai kategori kanonik agar cocok CAT_TO_BUDGET
+      const bk=CAT_TO_BUDGET[ck]; if(bk) byBudget[bk]=(byBudget[bk]||0)+v;
       // kontribusi per PIC (siapa penanggung jawab transaksi)
-      const isSave=(t.cat==='Investment Return'||t.cat==='Setor Tabungan')||((t.sub||'').toLowerCase()==='saving');
       const who=txnPic(t);
       if(byPic[who]){ if(isSave) byPic[who].saving+=v; else byPic[who].expense+=v; }
       // donut kategori × PIC (Berdua: pengeluaran per kategori per orang, 1:1 nama donut)
-      if(!byDonutPic[dk]) byDonutPic[dk]={reza:0,dini:0,total:0};
-      if(byDonutPic[dk][who]!==undefined) byDonutPic[dk][who]+=v;
-      byDonutPic[dk].total+=v;
+      if(!isSave){
+        const dk=donutCatOf(ck);
+        if(!byDonutPic[dk]) byDonutPic[dk]={reza:0,dini:0,total:0};
+        if(byDonutPic[dk][who]!==undefined) byDonutPic[dk][who]+=v;
+        byDonutPic[dk].total+=v;
+      }
     }
     // transfer tidak dimasukkan ke ringkasan pemasukan/pengeluaran per bank
     if(t.dir!=='transfer'){
@@ -4590,12 +4789,52 @@ function sendiriDonutKey(b){
 }
 function sendiriBudgetSpent(b){
   const d=deriveAll();
-  // Kategori pagu kini = kategori taksonomi mentah (mis. 'Food'), jadi cocokkan
-  // langsung ke byCat untuk angka "terpakai" yang presisi per kategori Arus Kas.
-  if(d.byCat && (b.nm in d.byCat)) return (d.byCat[b.nm]||0)/1e6;
-  // Kompatibilitas mundur: nama lama mungkin nama donut -> pakai byDonut.
+  // "Terpakai" pada kartu pagu = pengeluaran kategori INI saja (per kategori, bukan
+  // gabungan/keseluruhan). Cocokkan pakai kunci kanonik agar nama pagu ('Food' atau
+  // 'Makanan & Minuman' atau nama lama) menemukan angka byCat kategori yang sama.
+  const key=canonCat(b.nm);
+  if(d.byCat && (key in d.byCat)) return (d.byCat[key]||0)/1e6;
+  // Nama pagu lama yang hanya cocok sebagai nama donut (mis. 'Hiburan'/'Belanja'
+  // dipetakan ke 'Lainnya') — jumlahkan hanya transaksi yg kategori kanoniknya
+  // juga jatuh ke donut yang sama, TANPA mencampur kategori lain di luar itu.
   const dk=sendiriDonutKey(b);
-  return (d.byDonut[dk]||0)/1e6;
+  let sum=0;
+  Object.keys(d.byCat||{}).forEach(ck=>{ if(donutCatOf(ck)===dk) sum+=d.byCat[ck]; });
+  return sum/1e6;
+}
+
+// Transaksi pengeluaran (bulan fokus) milik SATU kartu pagu Sendiri — dipakai untuk
+// rincian belanja harian per kategori. Aturan pencocokan identik dengan
+// sendiriBudgetSpent: pertama coba kunci kanonik (per kategori presisi); bila nama
+// pagu lama (mis. 'Hiburan'/'Belanja') hanya cocok sebagai donut, ambil semua txn yang
+// kategori kanoniknya jatuh ke donut yang sama.
+function sendiriBudgetTxns(b){
+  const key=canonCat(b.nm);
+  const byCatHasKey = (function(){ const d=deriveAll(); return d.byCat && (key in d.byCat); })();
+  const dk=sendiriDonutKey(b);
+  return curMonthTxns().filter(t=>{
+    if(t.dir!=='out') return false;
+    const ck=canonCat(t.cat)||'Lainnya';
+    return byCatHasKey ? (ck===key) : (donutCatOf(ck)===dk);
+  });
+}
+
+// Rincian belanja HARIAN untuk satu kartu pagu: [{key, label, amt}] urut tanggal naik,
+// plus rata-rata belanja/hari (dibagi jumlah hari yang benar-benar ada transaksi).
+function budgetDailyBreakdown(b){
+  const txns=sendiriBudgetTxns(b);
+  const byDay={}; // key tanggal -> {key, day, label, amt}
+  txns.forEach(t=>{
+    const nd=normDate(t.date); if(!nd.key) return;
+    const day=nd.key%100;
+    if(!byDay[nd.key]) byDay[nd.key]={key:nd.key, day, label:nd.label, amt:0};
+    byDay[nd.key].amt += txnIDR(t);
+  });
+  const days=Object.values(byDay).sort((a,b)=>a.key-b.key);
+  const total=days.reduce((a,d)=>a+d.amt,0);
+  const avg = days.length ? Math.round(total/days.length) : 0;
+  const peak = days.reduce((m,d)=>Math.max(m,d.amt),0);
+  return { days, total, avg, peak, nDays:days.length };
 }
 
 // Daftar transaksi (semua, gabungan sumber) untuk satu kategori donut -> [judul, tgl, "Rp x"].
@@ -4604,7 +4843,7 @@ function txnsForDonutCat(nm){
   const totalOut=Object.values(d.byDonut).reduce((a,b)=>a+b,0);
   if(totalOut<=0) return null; // belum ada data -> pakai demo catDetail
   return curMonthTxns()
-    .filter(t=>t.dir==='out' && donutCatOf(t.cat)===nm)
+    .filter(t=>t.dir==='out' && donutCatOf(canonCat(t.cat))===nm)
     .map(t=>{ const nd=normDate(t.date); return [t.ket||t.sender||'Transaksi', nd.label, 'Rp '+jtfmt(manualParse(t.amt))]; });
 }
 
@@ -4825,7 +5064,7 @@ function renderTop(animateIn){
       screenStack[screenStack.length-1]=scrImport('parsing'); renderTop(false);
       updateFpFab();
       aiExpandedRows=new Set(); // mulai dengan tampilan ringkas (semua tertutup)
-      aiDateFilter=null; aiDateFrom=null; aiDateTo=null; // reset saringan periode tanggal tiap parsing baru
+      aiDateFilter=null; aiDateFrom=null; aiDateTo=null; aiReviewFilter='all'; // reset saringan (periode + status) tiap parsing baru
       impSelMode=false; impSelected.clear(); // reset mode pilih tiap parsing baru
       // Tampilkan hasil: bila user MASIH di layar import -> langsung buka review;
       // bila user sudah keluar -> jangan ganggu layarnya, cukup tandai job selesai
@@ -4892,22 +5131,38 @@ function renderTop(animateIn){
     const card=sub.querySelector(`.imp-card[data-imp-row="${i}"]`);
     if(card){
       const g=(cls)=>card.querySelector(cls);
+      // Tangkap status tinjau AWAL (sebelum kategori diubah) — dipakai untuk memutuskan
+      // apakah baris perlu berpindah dari grup "Perlu ditinjau" ke "Sudah terklasifikasi".
+      const wasReview=(typeof t.conf==='number' && t.conf<0.6) || t.cat==='Other Expense' || t.cat==='Other Income' || !t.cat;
       // pastikan nilai input terbaru terbaca (jaga-jaga bila blur belum terpicu)
       if(g('.imp-date')) t.date=g('.imp-date').value;
       if(g('.imp-time')) t.time=g('.imp-time').value;
       if(g('.imp-desc')) t.sender=g('.imp-desc').value;
       if(g('.imp-note')) t.note=g('.imp-note').value;
       if(g('.imp-amt-in')) t.amt=parseInt((g('.imp-amt-in').value||'').replace(/[^\d]/g,''),10)||0;
-      if(g('.imp-cat')) t.cat=g('.imp-cat').value;
-      if(g('.imp-sub')) t.sub=g('.imp-sub').value;
+      // Kategori/sub: JANGAN timpa dengan nilai sentinel '__add__' (muncul bila kolom
+      // input tambah-kustom masih terbuka & belum di-commit) — itulah sumber bug
+      // "data tidak berubah". Ambil hanya nilai kategori/sub yang valid.
+      { const cv=g('.imp-cat')?g('.imp-cat').value:null; if(cv && cv!=='__add__') t.cat=cv; }
+      { const sv=g('.imp-sub')?g('.imp-sub').value:null; if(sv && sv!=='__add__') t.sub=sv; }
+      // Selaraskan sub dgn kategori final (bila sub tak cocok kategori, ambil yang valid).
+      t.sub=normalizeSub(t.cat,t.sub);
       const rowPicOn=card.querySelector('.imp-row-pic .pic-opt.on')?.dataset.rowpic;
       if(PIC_VALID.includes(rowPicOn)) t.pic=rowPicOn;
+      // Kategori yang dipilih/dikonfirmasi user dianggap PASTI: tandai manual &
+      // naikkan confidence agar baris pindah dari "Perlu ditinjau" -> "Sudah
+      // terklasifikasi". Tidak ada transaksi yang hilang, hanya berpindah grup.
+      if(t.cat && t.cat!=='Other Expense' && t.cat!=='Other Income'){ t.conf=1; t.manual=true; }
+      // Bila baris ini semula "Perlu ditinjau" dan kini sudah punya kategori jelas,
+      // REGENERASI layar Tinjau AI (bukan pakai HTML lama) agar baris benar-benar
+      // berpindah grup & angka chip ikut ter-update.
+      if(wasReview && t.manual){ aiExpandedRows.delete(i); screenStack[screenStack.length-1]=scrImport('review'); renderTop(false); return; }
       // --- update ringkasan baris secara in-place (tidak re-render seluruh layar) ---
       const signCls=t.dir==='transfer'?'trf':(t.dir==='in'?'in':'out');
       const signTxt=dirSign(t.dir)+'Rp '+(t.amt||0).toLocaleString('id-ID');
       const dirEl=g('.imp-sum-dir'); if(dirEl){ dirEl.classList.remove('in','out','trf'); dirEl.classList.add(signCls); dirEl.innerHTML=dirIcon(t.dir); }
       const descEl=g('.imp-sum-desc'); if(descEl) descEl.textContent=t.sender||'Transaksi';
-      const metaEl=g('.imp-sum-meta'); if(metaEl) metaEl.textContent=`${t.date||'—'}${t.time?' · '+t.time:''} · ${t.cat}`;
+      const metaEl=g('.imp-sum-meta'); if(metaEl) metaEl.textContent=`${t.date||'—'}${t.time?' · '+t.time:''} · ${catLabel(t.cat)}`;
       const amtEl=g('.imp-sum-amt'); if(amtEl){ amtEl.classList.remove('in','out','trf'); amtEl.classList.add(signCls); amtEl.textContent=signTxt; }
       // tutup baris (collapse) tanpa renderTop
       aiExpandedRows.delete(i);
@@ -4937,6 +5192,13 @@ function renderTop(animateIn){
     aiParseMeta.defaultPic=who;
     screenStack[screenStack.length-1]=scrImport('review'); renderTop(false);
   })); }
+  // Chip status (Perlu ditinjau / Sudah yakin) di banner — bisa diklik untuk
+  // memfilter daftar. Klik chip yang sedang aktif = matikan (kembali ke 'all').
+  sub.querySelectorAll('[data-rvfilter]').forEach(btn=>btn.addEventListener('click',()=>{
+    const want=btn.dataset.rvfilter;
+    aiReviewFilter=(want==='all')?'all':(aiReviewFilter===want?'all':want);
+    screenStack[screenStack.length-1]=scrImport('review'); renderTop(false);
+  }));
   // saringan PERIODE tanggal (Dari … Sampai) di Tinjau Hasil AI
   {
     const dfrom=sub.querySelector('#imp-dfrom'), dto=sub.querySelector('#imp-dto'), dreset=sub.querySelector('#imp-dreset');
@@ -5441,9 +5703,17 @@ function renderTop(animateIn){
   sub.querySelectorAll('[data-budget-edit]').forEach(btn=>btn.addEventListener('click',(e)=>{
     e.stopPropagation(); toggleBudgEdit(+btn.dataset.budgetEdit);
   }));
+  // Buka/tutup rincian belanja harian saat kartu di-tap (tombol Ubah/Hapus & baris edit dikecualikan)
+  function toggleBudgDetail(bi){
+    const panel=sub.querySelector('#budgDetail'+bi); if(!panel) return;
+    const card=sub.querySelector('[data-budget-card="'+bi+'"]');
+    const open=panel.hidden;
+    panel.hidden=!open;
+    if(card) card.classList.toggle('detail-open',open);
+  }
   sub.querySelectorAll('[data-budget-card]').forEach(card=>card.addEventListener('click',(e)=>{
     if(e.target.closest('.budg-editrow')||e.target.closest('[data-budget-edit]')||e.target.closest('[data-del-budget]')) return;
-    toggleBudgEdit(+card.dataset.budgetCard);
+    toggleBudgDetail(+card.dataset.budgetCard);
   }));
   // Format ribuan saat mengetik nominal pagu
   sub.querySelectorAll('.budg-cap-edit').forEach(inp=>{
@@ -5571,7 +5841,7 @@ function renderTop(animateIn){
       p.addEventListener('click',()=>{
         mrow.querySelectorAll('.month-pill').forEach(x=>x.classList.remove('on'));
         p.classList.add('on');
-        const m=p.dataset.m, r=monthRecap[m];
+        const m=p.dataset.m, r=monthRecap[m]||{in:'0',out:'0'};
         const vals=sub.querySelectorAll('.stat-box .sv');
         const labs=sub.querySelectorAll('.stat-box .sl');
         if(vals[0]) vals[0].textContent='Rp '+r.in;
