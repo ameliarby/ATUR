@@ -5,6 +5,23 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.17] - 2026-07-01
+
+### Diperbaiki
+- **Login Google/Email biasa tidak lagi salah menampilkan halaman "Kamu
+  diundang ATUR Berdua".** Sebelumnya `routeAfterAuth()` & `boot()` membaca kode
+  undangan dari `localStorage`/`APP.pendingJoin`, sehingga sisa kode undangan
+  lama (mis. milik pengundang yang pernah membuat tautan) memicu tampilan
+  onboarding varian "join" pada login biasa. Kini tampilan varian "join" HANYA
+  muncul bila kode `?join=` benar-benar datang dari URL pada kunjungan itu
+  (yaitu saat pasangan mengklik tautan undangan). Login Google/Email tanpa
+  undangan kini konsisten menampilkan halaman "Selamat datang, isi nama"
+  (varian login) lalu masuk Home.
+- Kode undangan dari `localStorage`/`APP.pendingJoin` tetap dipakai HANYA untuk
+  MENYELESAIKAN proses `acceptInvite` (bila user memang tiba lewat undangan lalu
+  harus login dulu), tanpa pernah memaksa tampilan "Kamu diundang" pada login
+  biasa.
+
 ## [1.11.16] - 2026-07-01
 
 ### Diperbaiki
@@ -253,3 +270,4 @@ alter table household_members add column if not exists display_name text;
 [1.11.14]: https://github.com/ameliarby/ATUR
 [1.11.15]: https://github.com/ameliarby/ATUR
 [1.11.16]: https://github.com/ameliarby/ATUR
+[1.11.17]: https://github.com/ameliarby/ATUR
