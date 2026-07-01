@@ -5,6 +5,141 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.22] - 2026-07-01
+
+### Diperbaiki
+- **Status "Menunggu pasangan menerima undangan…" tidak lagi muncul di mode
+  tamu (guest).** Sebelumnya, saat guest menekan "Ajak pasangan gabung", muncul
+  notifikasi *belum tersinkron* lalu kartu menampilkan status menunggu — padahal
+  tautan guest bersifat lokal dan tidak ada undangan yang benar-benar dikirim ke
+  backend. Kini status menunggu **hanya muncul untuk user yang login (cloud)**.
+  Pada `sendInviteWA()`, `APP.inviteSent=true` hanya diset di cabang cloud;
+  cabang guest menyetel `APP.inviteSent=false` sehingga setelah menutup
+  notifikasi, tampilan **kembali ke kartu ajak-pasangan biasa tanpa status
+  menunggu**. Penjaga tampilan diperketat menjadi
+  `APP.authMode==='cloud' && !!APP.inviteSent`.
+
+## [1.11.21] - 2026-07-01
+
+### Diubah
+- **Ajak pasangan kini 1 ketuk dari home — tanpa landing "Hubungkan via
+  WhatsApp".** Pada kartu ATUR Berdua kondisi *belum terhubung*, tombol lama
+  "Hubungkan via WhatsApp" (yang membuka halaman terpisah) diganti kartu ringkas
+  berisi **ikon link yang bisa diketuk** + ikon WhatsApp. Sekali ketuk langsung
+  memanggil `sendInviteWA()`: mode cloud membuat kode undangan **di backend**
+  (`createInvite`, kode tidak ditampilkan) lalu membuka WhatsApp dengan pesan
+  siap-kirim; guest memakai tautan lokal + info agar login dulu untuk sinkron.
+- Setelah undangan dikirim, kartu menampilkan status **"Menunggu pasangan
+  menerima undangan…"** (flag `APP.inviteSent`), dan `syncBerduaRealtime()`
+  langsung dipasang untuk pengundang sehingga status berubah otomatis menjadi
+  **"Terhubung"** saat pasangan bergabung. Flag di-reset saat terhubung,
+  keluar household (`leaveHousehold`), atau reset data Berdua.
+- Halaman `scrConnectWA` kini hanya dipakai untuk **mengelola** koneksi yang
+  sudah ada (dari kartu "Terhubung"), bukan sebagai gerbang untuk mengundang.
+
+## [1.11.20] - 2026-07-01
+
+### Ditambahkan
+- **"Reset Data" dan "Keluar (Log out)" kini tombol terpisah** di Profil &
+  Pengaturan (sebelumnya digabung sebagai satu aksi "Reset Data & Keluar").
+  - **Keluar (Log out)** — hanya mengakhiri sesi (`signOut`). **Data cloud
+    TETAP tersimpan**; login kembali dengan akun yang sama memulihkan seluruh
+    data. Data lokal di perangkat tidak dihapus. Tombol **selalu tampil** (baik
+    user login/cloud maupun tamu/guest); untuk tamu, keterangannya "Kembali ke
+    layar awal" dan data lokal di perangkat tetap aman.
+  - **Reset Data** — membuka pilihan cakupan: **Reset data Sendiri** atau
+    **Reset data Berdua**. `resetSendiri()` menghapus transaksi, anggaran, & aset
+    mode Sendiri saja; `resetBerdua()` menghapus transaksi, anggaran, pembagian
+    tugas, & aset mode Berdua saja (dan memutus koneksi household bila
+    tersambung). Masing-masing tidak memengaruhi data mode lain.
+- **Kartu undangan sisi PENGUNDANG kini tersegar real-time.** Setelah pengundang
+  membuat & mengirim undangan (salin tautan / kirim via WhatsApp) dalam mode
+  cloud, `syncBerduaRealtime()` langsung dipasang untuk pengundang. Begitu
+  pasangan menerima undangan, kartu berubah otomatis **"Menunggu…" →
+  "Terhubung dengan &lt;pasangan&gt;"** tanpa perlu me-refresh layar (menutup
+  celah yang sebelumnya hanya memasang listener di jalur pasangan).
+
+### Dihapus
+- **Gerbang "input nama pasangan" saat berpindah dari ATUR Sendiri ke ATUR
+  Berdua dihilangkan.** Sebelumnya `setMode('b')` memanggil `openBerduaLock()`
+  yang menampilkan overlay berisi kolom **"Nama pasangan"** + tombol
+  **"Konfirmasi Nama Pasangan"** (dengan opsi "Lewati") sebagai syarat masuk
+  mode Berdua. Alur ini dihapus sepenuhnya (fungsi `openBerduaLock()` dibuang,
+  tidak ada pemanggil tersisa) karena UX undangan kini lebih ringkas: nama
+  pasangan tidak lagi diminta di sisi pengundang.
+
+### Diubah
+- **Masuk ATUR Berdua kini langsung ke dashboard.** `setMode('b')` cukup
+  menandai `APP.berduaSetup=true` lalu merender dashboard Berdua. Bila belum
+  terhubung, dashboard menampilkan kartu ajak-pasangan (**Hubungkan via
+  WhatsApp**) alih-alih form isi nama — konsisten dengan mockup user journey
+  (kondisi A1: kartu ajakan tanpa status "Menunggu" sebelum tautan dikirim).
+- Nama pasangan datang otomatis saat pasangan bergabung lewat undangan
+  (`fetchPartnerName` / `syncBerduaRealtime`), bukan diketik manual oleh
+  pengundang.
+
+## [1.11.19] - 2026-07-01
+
+### Diperbaiki
+- **Pengundang (main user) yang membuka tautan undangannya sendiri tidak lagi
+  ikut menjalani alur "gabung sebagai pasangan".** Sebelumnya `acceptInvite()`
+  akan mencoba meng-*insert* pengundang ke household-nya sendiri (ditangkap
+  sebagai duplikat `23505`) lalu memaksa masuk lewat `enterBerduaAfterJoin()`,
+  sehingga greeting/nama pasangan bisa tampil salah bila pasangan belum gabung.
+  Kini `acceptInvite()` mendeteksi **self-invite** (via `invited_by === uid`
+  atau `household_id` yang sama dengan milik user) dan mengembalikan penanda
+  `{ self:true }`; `routeAfterAuth()` & tombol "Gabung" menghormatinya dengan
+  membawa pengundang langsung ke **dashboard-nya sendiri** — bukan ke form isi
+  info undangan.
+
+### Diubah
+- `acceptInvite(code)` kini mengembalikan objek `{ self, householdId }`
+  (sebelumnya string `household_id`). Kedua pemanggil disesuaikan; nilai
+  kembalian lama tidak dipakai sebagai household_id di tempat lain sehingga
+  tidak ada regresi.
+
+### Catatan
+- **Sinkronisasi data collab (poin permintaan) sudah aktif untuk jalur Google.**
+  Setelah pasangan "Masuk dengan Google" lalu menerima undangan, kedua akun
+  berbagi `household_id` yang sama; transaksi ditulis (`pushTxnCloud`) & dibaca
+  (`pullCloud`) per `household_id`, dan `syncBerduaRealtime()` men-*subscribe*
+  perubahan tabel `transactions` + `household_members` per household → data &
+  nama pasangan tersinkron dua arah secara real-time.
+
+## [1.11.18] - 2026-07-01
+
+### Ditambahkan
+- **Halaman "Kamu diundang" (ATUR Berdua) kini punya pilihan login.** Saat
+  pasangan mengklik tautan undangan WhatsApp (`?join=<code>`), aplikasi langsung
+  menampilkan halaman undangan bertahap:
+  1. **Tahap pilihan** — banner hijau "Kamu diundang oleh <pengundang>" dengan
+     dua tombol: **"Masuk dengan Google"** (menautkan akun & menyinkronkan data
+     dengan pengundang) dan **"Gabung tanpa login"** (masuk mode Berdua lokal di
+     perangkat, tanpa sinkron).
+  2. **Tahap isi nama** — kolom nama + tombol "Gabung ATUR Berdua". Bila lewat
+     Google, nama akun Google otomatis ter-*prefill* dan tetap bisa diedit.
+- Fungsi baru `mountJoinChoose()` untuk merender tahap pilihan tersebut.
+- Flag `APP.joinFlow` (+ `localStorage 'atur_join_flow'`) untuk menandai bahwa
+  login Google berasal dari alur undangan, sehingga setelah redirect OAuth balik
+  (yang menghapus `?join=` dari URL) aplikasi tetap mengenali konteks undangan.
+
+### Diperbaiki
+- **Pasangan yang mengklik tautan undangan tidak lagi terlempar ke halaman
+  "Selamat Datang!" (Welcome).** Sebelumnya `boot()` hanya menampilkan varian
+  "join" bila `APP.authMode==='cloud'`; pasangan baru (berstatus `guest`) jatuh
+  ke `mountWelcome()` sehingga yang muncul justru halaman opening — bukan
+  halaman isi nama/ajakan gabung. Kini pengunjung dengan `?join=` dari URL
+  SELALU diarahkan ke halaman undangan lebih dulu.
+- **Tombol "Gabung ATUR Berdua" kini berfungsi untuk pengguna tanpa login.**
+  Sebelumnya `acceptInvite`/masuk-Berdua dijaga `authMode==='cloud'` sehingga
+  guest yang mengisi nama tidak masuk ke mode Berdua sama sekali. Kini guest
+  langsung masuk tampilan ATUR Berdua secara lokal (dengan pemberitahuan bahwa
+  data belum tersinkron), sementara pengguna Google tersambung penuh via
+  `acceptInvite()` lalu `enterBerduaAfterJoin()`.
+- Pengenalan alur join setelah login Google diperketat memakai `joinFlow` + kode
+  undangan tersimpan, sehingga login Google/Email biasa (tanpa undangan) tetap
+  tidak salah masuk varian "join".
+
 ## [1.11.17] - 2026-07-01
 
 ### Diperbaiki
@@ -271,3 +406,8 @@ alter table household_members add column if not exists display_name text;
 [1.11.15]: https://github.com/ameliarby/ATUR
 [1.11.16]: https://github.com/ameliarby/ATUR
 [1.11.17]: https://github.com/ameliarby/ATUR
+[1.11.18]: https://github.com/ameliarby/ATUR
+[1.11.19]: https://github.com/ameliarby/ATUR
+[1.11.20]: https://github.com/ameliarby/ATUR
+[1.11.21]: https://github.com/ameliarby/ATUR
+[1.11.22]: https://github.com/ameliarby/ATUR
