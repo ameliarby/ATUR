@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.25">
+<meta name="app-version" content="1.11.26">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2825,6 +2825,7 @@ async function resetBerdua(){
   try{ if(APP.householdId) await leaveHousehold(); }catch(e){ berduaConnected=false; }
   try{ localStorage.removeItem('atur_household_txns'); localStorage.removeItem('atur_hh_budget_caps'); localStorage.removeItem('atur_pic'); }catch(e){}
   householdTxns.length=0; assetsBerdua.length=0;
+  try{ _berduaInitDone=false; }catch(e){} // izinkan sinkronisasi awal lagi bila nanti join ulang
   APP.partner=''; APP.berduaSetup=false; berduaConnected=false;
   try{ loadBudgetCaps(); }catch(e){}
   invalidateDerive && invalidateDerive();
@@ -3188,7 +3189,7 @@ let inviteCode = 'ATUR-7K9P-LINK';
  * v1.11.0 — SUPABASE: Auth (Stage 1) + Sync/Share Berdua (Stage 2)
  * =================================================================== */
 const SUPABASE_URL  = 'https://xvbknqdlbcqvzvzltllz.supabase.co';
-const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8Ybeu0Va9hFnqn5UWyPT9iAXI';
+const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8YbeQOu0Va9hFnqn5UWyPT9iAXI';
 let sb = null;
 
 function initSupabase(){
@@ -3334,19 +3335,98 @@ async function leaveHousehold(){
   APP.householdId=''; berduaConnected=false; APP.inviteSent=false;
   saveApp(); syncNames();
 }
+// === SYNC BERDUA (cloud) ====================================================
+// Prinsip pemisahan data:
+//   • ATUR Sendiri (mode 's', manualTxns) = PRIVAT per akun. TIDAK PERNAH
+//     di-push/pull ke/dari cloud. Pasangan tak bisa melihatnya.
+//   • ATUR Berdua (mode 'b', householdTxns) = GABUNGAN & ter-sync antar kedua
+//     akun household lewat tabel `transactions` (RLS berbasis household).
+// berduaCloudActive() true HANYA saat: login cloud + punya household + mode 'b'.
+function berduaCloudActive(){
+  return APP.authMode==='cloud' && !!APP.householdId;
+}
+// Kolom cloud yang tersedia: household_id, user_id, local_id, type(in/out),
+// amount(number), category, note(text), occurred_at. Field lokal ATUR jauh
+// lebih kaya (dir, bank, ket, cur, rate, sub, pic, seq, time, dsb). Agar sync
+// TANPA migrasi skema, seluruh field ekstra dibungkus JSON di kolom `note`.
+function _numAmt(t){
+  const v=t.amt!=null?t.amt:(t.amount!=null?t.amount:0);
+  if(typeof v==='number') return Math.abs(v);
+  return Math.abs(Number(String(v).replace(/[^\d.-]/g,''))||0);
+}
+// Ubah transaksi lokal (mode Berdua) -> baris cloud.
+function txnToCloud(t){
+  const dir=(t.dir==='in'||t.kind==='income'||t.type==='in')?'in':'out';
+  // Simpan semua field lokal (kecuali yang sudah punya kolom) di envelope JSON.
+  const extra={ ket:t.ket, note:t.note, dir:t.dir, bank:t.bank, cur:t.cur,
+    rate:t.rate, sub:t.sub, pic:t.pic, seq:t.seq, time:t.time, origin:t.origin,
+    pocket:t.pocket, source:t.source, detail:t.detail, balance:t.balance,
+    timeFull:t.timeFull, dateFull:t.dateFull };
+  return {
+    local_id:String(t.id||t.local_id||Date.now()),
+    type:dir,
+    amount:_numAmt(t),
+    category:t.cat||t.category||null,
+    note:'ATURJSON:'+JSON.stringify(extra),
+    occurred_at:t.date||t.occurred_at||new Date().toISOString()
+  };
+}
+// Ubah baris cloud -> transaksi lokal (mode Berdua), memulihkan field ekstra.
+function cloudToTxn(row){
+  let extra={};
+  if(row.note && String(row.note).startsWith('ATURJSON:')){
+    try{ extra=JSON.parse(String(row.note).slice(9))||{}; }catch(e){ extra={}; }
+  } else if(row.note){ extra.ket=row.note; }
+  const dir=extra.dir || (row.type==='in'?'in':'out');
+  const t={
+    id:row.local_id,
+    seq:extra.seq!=null?extra.seq:(typeof nextSeq==='function'?nextSeq():0),
+    origin:extra.origin||'cloud',
+    dir,
+    amt:Number(row.amount||0).toLocaleString('id-ID'),
+    cur:extra.cur||'IDR',
+    rate:extra.rate!=null?extra.rate:1,
+    bank:extra.bank||'',
+    ket:extra.ket||(typeof dirLabel==='function'?dirLabel(dir):''),
+    note:extra.note||'',
+    date:(row.occurred_at||'').slice(0,10)||extra.dateFull||'',
+    time:extra.time||'—',
+    cat:row.category||'Lainnya',
+    sub:extra.sub||''
+  };
+  if(extra.pic!=null) t.pic=extra.pic;
+  if(extra.pocket!=null) t.pocket=extra.pocket;
+  if(extra.source!=null) t.source=extra.source;
+  if(extra.detail!=null) t.detail=extra.detail;
+  if(extra.balance!=null) t.balance=extra.balance;
+  if(extra.timeFull!=null) t.timeFull=extra.timeFull;
+  if(extra.dateFull!=null) t.dateFull=extra.dateFull;
+  return t;
+}
 async function pushTxnCloud(t){
   const c=initSupabase(); if(!c||!APP.householdId) return;
   const sess=await currentSession(); if(!sess) return;
   try{
-    await c.from('transactions').upsert({
-      household_id:APP.householdId, user_id:sess.user.id,
-      local_id:String(t.id||t.local_id||Date.now()),
-      type:(t.kind==='income'||t.type==='in')?'in':'out',
-      amount:Math.abs(Number(t.amt||t.amount||0)),
-      category:t.cat||t.category||null, note:t.note||t.title||null,
-      occurred_at:t.date||t.occurred_at||new Date().toISOString()
-    },{ onConflict:'household_id,local_id' });
+    await c.from('transactions').upsert(Object.assign(
+      { household_id:APP.householdId, user_id:sess.user.id }, txnToCloud(t)
+    ),{ onConflict:'household_id,local_id' });
   }catch(e){ console.warn('pushTxnCloud', e); }
+}
+// Hapus satu transaksi Berdua dari cloud berdasar local_id (id lokalnya).
+async function deleteTxnCloud(localId){
+  const c=initSupabase(); if(!c||!APP.householdId||localId==null) return;
+  try{
+    await c.from('transactions').delete()
+      .eq('household_id',APP.householdId).eq('local_id',String(localId));
+  }catch(e){ console.warn('deleteTxnCloud', e); }
+}
+// Hapus banyak sekaligus (untuk hapus terpilih).
+async function deleteTxnsCloud(localIds){
+  const c=initSupabase(); if(!c||!APP.householdId||!localIds||!localIds.length) return;
+  try{
+    await c.from('transactions').delete()
+      .eq('household_id',APP.householdId).in('local_id',localIds.map(String));
+  }catch(e){ console.warn('deleteTxnsCloud', e); }
 }
 async function pullCloud(){
   const c=initSupabase(); if(!c||!APP.householdId) return [];
@@ -3356,6 +3436,67 @@ async function pullCloud(){
     return data||[];
   }catch(e){ console.warn('pullCloud', e); return []; }
 }
+// Tarik SEMUA transaksi household dari cloud -> ganti isi householdTxns lokal,
+// simpan cache, lalu segarkan tampilan. INI yang membuat data Berdua kedua
+// akun tergabung & sinkron. Tidak menyentuh manualTxns (mode Sendiri).
+let _pullingHh=false;
+async function pullHouseholdTxns(rerender){
+  if(!berduaCloudActive()) return;
+  if(_pullingHh) return;
+  _pullingHh=true;
+  try{
+    const rows=await pullCloud();
+    const mapped=rows.map(cloudToTxn);
+    if(typeof householdTxns!=='undefined'){
+      householdTxns.length=0;
+      mapped.forEach(t=>householdTxns.push(t));
+      // jaga _seqCounter tak tertinggal agar transaksi baru tetap muncul teratas
+      if(typeof _seqCounter!=='undefined'){
+        const mx=householdTxns.reduce((m,t)=>Math.max(m,t.seq||0),0);
+        if(mx>_seqCounter) _seqCounter=mx;
+      }
+      try{ localStorage.setItem('atur_household_txns',JSON.stringify(householdTxns)); }catch(e){}
+      if(typeof invalidateDerive==='function') invalidateDerive();
+    }
+    if(rerender!==false) refreshBerduaViews();
+  }catch(e){ console.warn('pullHouseholdTxns', e); }
+  finally{ _pullingHh=false; }
+}
+// Sinkronisasi awal saat pertama masuk Berdua+cloud pada sebuah sesi:
+//  1) Naikkan transaksi Berdua LOKAL yang belum ada di cloud (mis. dicatat
+//     sebelum fitur sync ada / saat offline) supaya tidak hilang saat di-pull.
+//  2) Baru tarik data gabungan dari cloud (kedua akun jadi satu).
+// Sengaja hanya sekali per sesi halaman agar tidak berulang tiap ganti mode.
+let _berduaInitDone=false;
+async function syncBerduaInitial(rerender){
+  if(!berduaCloudActive()){ return; }
+  if(!_berduaInitDone){
+    _berduaInitDone=true;
+    try{
+      const cloudRows=await pullCloud();
+      const cloudIds=new Set((cloudRows||[]).map(r=>String(r.local_id)));
+      const localOnly=(typeof householdTxns!=='undefined'?householdTxns:[])
+        .filter(t=>t && t.id!=null && !cloudIds.has(String(t.id)));
+      for(const t of localOnly){ await pushTxnCloud(t); }
+    }catch(e){ console.warn('syncBerduaInitial push', e); }
+  }
+  await pullHouseholdTxns(rerender);
+}
+// Segarkan tampilan mode Berdua: dashboard + layar Catatan bila sedang dibuka.
+function refreshBerduaViews(){
+  if(currentMode!=='b') return;
+  try{ if(typeof refreshDash==='function') refreshDash(); }catch(e){}
+  // Bila layar Catatan Arus Kas sedang tampil (subScreen show + berisi #catScroll),
+  // render ulang isinya agar transaksi pasangan langsung muncul.
+  try{
+    const sub=document.getElementById('subScreen');
+    const catOpen = sub && sub.classList.contains('show') && sub.querySelector('#catScroll');
+    if(catOpen && typeof scrCatatan==='function' && screenStack && screenStack.length){
+      screenStack[screenStack.length-1]=scrCatatan();
+      if(typeof renderTop==='function') renderTop(false);
+    }
+  }catch(e){}
+}
 let _rtChannel=null;
 function syncBerduaRealtime(onChange){
   const c=initSupabase(); if(!c||!APP.householdId) return;
@@ -3364,7 +3505,12 @@ function syncBerduaRealtime(onChange){
     _rtChannel=c.channel('hh-'+APP.householdId)
       .on('postgres_changes',
         { event:'*', schema:'public', table:'transactions', filter:'household_id=eq.'+APP.householdId },
-        payload=>{ if(typeof onChange==='function') onChange(payload); })
+        payload=>{
+          // Perubahan transaksi household (dari diri sendiri ATAU pasangan) →
+          // tarik ulang data Berdua supaya kedua akun tetap sinkron.
+          if(typeof pullHouseholdTxns==='function') pullHouseholdTxns();
+          if(typeof onChange==='function') onChange(payload);
+        })
       // Sync nama pasangan DUA ARAH: begitu anggota lain menulis/ubah display_name
       // (mis. pasangan baru gabung), pengundang menerima update & menyegarkan greeting.
       .on('postgres_changes',
@@ -3384,14 +3530,12 @@ function syncBerduaRealtime(onChange){
   }catch(e){ console.warn('syncBerduaRealtime', e); }
 }
 async function migrateLocalToCloud(){
-  const c=initSupabase(); if(!c||APP.authMode!=='cloud') return;
-  let hid=null;
-  try{ hid=await ensureHousehold(currentMode==='b'?'b':'s'); }catch(e){ console.warn('migrate ensureHousehold', e); return; }
-  if(!hid) return;
-  try{
-    let local=[]; try{ local=JSON.parse(localStorage.getItem('atur_manual_txns')||'[]'); }catch(e){}
-    for(const t of local){ await pushTxnCloud(t); }
-  }catch(e){ console.warn('migrate', e); }
+  // DINONAKTIFKAN (v1.11.26): dulu fungsi ini mendorong `atur_manual_txns`
+  // (data mode SENDIRI) ke tabel household `transactions`. Itu SALAH — mode
+  // Sendiri bersifat PRIVAT per akun & TIDAK boleh terlihat pasangan. Data
+  // yang tersinkron ke cloud hanya mode Berdua (householdTxns), lewat
+  // pushTxnCloud/pullHouseholdTxns pada aksi tambah/edit/hapus di mode Berdua.
+  return;
 }
 // Shared review queue. amt = rupiah (number). tag: 'shared' | 'private' | null. kind: 'expense' | 'saving'
 const sharedTxns = [];
@@ -6234,8 +6378,13 @@ function renderTop(animateIn){
       if(!aiParsePreview.length){ appAlert('Tidak ada transaksi untuk disimpan.'); return; }
       if(!(await appDialog({title:'Simpan transaksi?',msg:`Menyimpan ${aiParsePreview.length} transaksi dari e-statement ke catatan arus kas kamu.`,okText:'Ya, simpan',cancelText:'Batal'}))) return;
       // Tambahkan hasil parse (sudah diedit user) ke store AKTIF (sesuai mode) — akumulatif, tidak menghapus data lama.
-      activeTxns().push(...aiParsePreview.filter(t=>(t.amt||0)>0).map((t,i)=>({id:(currentMode==='b'?'himp':'imp')+Date.now()+'_'+i,seq:nextSeq(),origin:'estmt',dir:t.dir,amt:(t.amt||0).toLocaleString('id-ID'),cur:(t.cur||'IDR'),rate:curRate(t.cur||'IDR'),bank:(aiParseMeta.bank||'e-Statement'),ket:t.sender,note:t.note||'',date:normImportDate(t.date),time:t.time||'—',cat:t.cat,sub:t.sub,pic:(PIC_VALID.includes(t.pic)?t.pic:aiParseMeta.defaultPic),pocket:t.pocket||'',source:t.source||'',detail:t.detail||'',balance:(t.balance==null?null:t.balance),timeFull:t.timeFull||t.time||'',dateFull:t.dateFull||t.date||''})));
+      const _impRecs=aiParsePreview.filter(t=>(t.amt||0)>0).map((t,i)=>({id:(currentMode==='b'?'himp':'imp')+Date.now()+'_'+i,seq:nextSeq(),origin:'estmt',dir:t.dir,amt:(t.amt||0).toLocaleString('id-ID'),cur:(t.cur||'IDR'),rate:curRate(t.cur||'IDR'),bank:(aiParseMeta.bank||'e-Statement'),ket:t.sender,note:t.note||'',date:normImportDate(t.date),time:t.time||'—',cat:t.cat,sub:t.sub,pic:(PIC_VALID.includes(t.pic)?t.pic:aiParseMeta.defaultPic),pocket:t.pocket||'',source:t.source||'',detail:t.detail||'',balance:(t.balance==null?null:t.balance),timeFull:t.timeFull||t.time||'',dateFull:t.dateFull||t.date||''}));
+      activeTxns().push(..._impRecs);
       saveActiveTxns();
+      // Mode Berdua + cloud → dorong semua transaksi impor ke backend (sync ke pasangan).
+      if(currentMode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+        (async()=>{ for(const r of _impRecs){ await pushTxnCloud(r); } })().catch(()=>{});
+      }
       // Job selesai & tersimpan -> bersihkan status supaya FAB progress hilang.
       aiParseJob.active=false; aiParseJob.done=false; aiParseJob.startedMode='';
       openScreen(emptyState(I.check,'Tersimpan!',`${aiParsePreview.filter(t=>(t.amt||0)>0).length} transaksi berhasil diimpor ke catatan arus kas.`,'Selesai','done'));
@@ -6373,8 +6522,13 @@ function renderTop(animateIn){
       if(!catatanSelected.size) return;
       const n=catatanSelected.size;
       if(await appConfirm(`Hapus ${n} transaksi terpilih dari catatan? Tindakan ini tidak bisa dibatalkan.`)){
+        const _delIds=[...catatanSelected];
         const arr=activeTxns(); const keep=arr.filter(t=>!catatanSelected.has(t.id));
         arr.length=0; keep.forEach(t=>arr.push(t)); saveActiveTxns();
+        // Mode Berdua + cloud → hapus juga dari backend (sinkron ke pasangan).
+        if(currentMode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+          deleteTxnsCloud(_delIds).catch(()=>{});
+        }
         catatanSelMode=false; catatanSelected.clear();
         screenStack[screenStack.length-1]=scrCatatan(); renderTop(false);
       }
@@ -6386,6 +6540,9 @@ function renderTop(animateIn){
     if(await appConfirm('Hapus transaksi ini dari catatan?')){
       const arr=activeTxns(); const i=arr.findIndex(t=>t.id===id);
       if(i>-1){ arr.splice(i,1); saveActiveTxns(); }
+      if(currentMode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+        deleteTxnCloud(id).catch(()=>{});
+      }
       screenStack[screenStack.length-1]=scrCatatan(); renderTop(false);
     }
   }));
@@ -6443,12 +6600,19 @@ function renderTop(animateIn){
       if(PIC_VALID.includes(pickedPic)) t.pic=pickedPic;
       t.seq=nextSeq(); // edit terbaru -> naik ke paling atas pada tanggalnya
       saveActiveTxns();
+      // Mode Berdua + cloud → dorong perubahan (upsert) ke backend agar sinkron.
+      if(currentMode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+        pushTxnCloud(t).catch(()=>{});
+      }
       goBack();
       screenStack[screenStack.length-1]=scrCatatan(); renderTop(false);
     });
     eForm.querySelector('#e-del').addEventListener('click',async()=>{
       if(await appConfirm('Hapus transaksi ini?')){
         const arr=activeTxns(); const i=arr.findIndex(x=>x.id===id); if(i>-1){ arr.splice(i,1); saveActiveTxns(); }
+        if(currentMode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+          deleteTxnCloud(id).catch(()=>{});
+        }
         goBack();
         screenStack[screenStack.length-1]=scrCatatan(); renderTop(false);
       }
@@ -7129,6 +7293,12 @@ function setMode(mode){
   if(mode==='b' && !APP.berduaSetup){ APP.berduaSetup=true; saveApp(); }
   currentMode=mode;
   swapProjStore(mode); // tukar goals/scheduledCosts/fixed* agar terpisah per mode
+  // Masuk mode Berdua saat login cloud + punya household → tarik data gabungan
+  // dari backend (sync 2 akun) & pastikan listener real-time terpasang.
+  if(mode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+    if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshBerduaViews==='function') refreshBerduaViews(); });
+    if(typeof syncBerduaInitial==='function') syncBerduaInitial();
+  }
   const screen=document.getElementById('screen');
   const heroSlot=document.getElementById('heroSlot');
   const duoLinkSlot=document.getElementById('duoLinkSlot');
@@ -7351,6 +7521,10 @@ function bindAddForm(sub){
     const pickedFPic=form.querySelector('.f-pic-pick .pic-opt.on')?.dataset.fpic;
     if(PIC_VALID.includes(pickedFPic)) rec.pic=pickedFPic;
     activeTxns().push(rec); saveActiveTxns();
+    // Mode Berdua + cloud → dorong transaksi ke backend agar tersinkron ke pasangan.
+    if(currentMode==='b' && typeof berduaCloudActive==='function' && berduaCloudActive()){
+      pushTxnCloud(rec).catch(()=>{});
+    }
     // langsung pindah ke Catatan Arus Kas
     openScreen(scrCatatan());
   });
@@ -7480,6 +7654,15 @@ async function routeAfterAuth(session){
       const nm=await fetchPartnerName(APP.householdId, session.user.id);
       if(nm){ APP.partner=nm; berduaConnected=true; saveApp(); syncNames(); }
     }catch(e){}
+    // Sudah tersambung household → pasang listener real-time & tarik data Berdua
+    // gabungan sekarang (cache householdTxns) supaya begitu user membuka mode
+    // Berdua datanya sudah tersinkron. Mode Sendiri (manualTxns) tak tersentuh.
+    try{
+      if(typeof berduaCloudActive==='function' && berduaCloudActive()){
+        if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshBerduaViews==='function') refreshBerduaViews(); });
+        if(typeof syncBerduaInitial==='function') syncBerduaInitial(false);
+      }
+    }catch(e){}
   }
   mountPhone();
 }
@@ -7496,7 +7679,9 @@ function enterBerduaAfterJoin(){
     if(typeof refreshTag==='function') refreshTag();
     if(typeof setGreeting==='function') setGreeting();
     if(typeof refreshDash==='function') refreshDash();
-    if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshDash==='function') refreshDash(); });
+    if(typeof syncBerduaRealtime==='function') syncBerduaRealtime(()=>{ if(typeof refreshBerduaViews==='function') refreshBerduaViews(); });
+    // Pasangan baru gabung → tarik data Berdua gabungan dari backend.
+    if(typeof syncBerduaInitial==='function') syncBerduaInitial();
   }catch(e){}
 }
 async function boot(){

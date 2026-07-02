@@ -5,6 +5,39 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.26] - 2026-07-02
+
+### Ditambahkan
+- **Sinkronisasi data ATUR Berdua antar kedua akun pasangan.** Sebelumnya
+  transaksi mode Berdua (`householdTxns`) hanya tersimpan di `localStorage`
+  masing-masing perangkat sehingga data tidak pernah bertemu — setelah pasangan
+  bergabung pun catatan tetap terpisah. Kini di mode **Berdua** (login cloud +
+  sudah punya household), transaksi merupakan **gabungan & tersinkron** dari
+  kedua akun lewat tabel `transactions` Supabase:
+  - **Tambah / edit / hapus** transaksi Berdua langsung didorong ke backend
+    (`pushTxnCloud` / `deleteTxnCloud` / `deleteTxnsCloud`).
+  - Perubahan dari pasangan diterima **real-time** (listener `transactions`)
+    lalu ditarik ulang (`pullHouseholdTxns`) & tampilan Beranda + Catatan Arus
+    Kas ikut disegarkan otomatis (`refreshBerduaViews`).
+  - **Sinkronisasi awal** (`syncBerduaInitial`) saat pertama masuk Berdua pada
+    sebuah sesi: transaksi Berdua lokal yang belum ada di cloud dinaikkan dulu
+    (agar data lama/offline tak hilang), baru data gabungan ditarik.
+  - Impor e-statement di mode Berdua kini juga ikut terdorong ke cloud.
+  - Titik masuk sync dipasang di `setMode('b')`, `enterBerduaAfterJoin()`, dan
+    jalur pengundang di `routeAfterAuth()`.
+
+### Diperbaiki
+- **Kebocoran data mode Sendiri dinonaktifkan.** `migrateLocalToCloud()`
+  sebelumnya mendorong `atur_manual_txns` (data **Sendiri**) ke tabel household
+  bersama — melanggar privasi karena pasangan bisa melihatnya. Fungsi ini kini
+  **no-op**: hanya data mode **Berdua** yang boleh masuk cloud.
+
+### Dipertahankan
+- **ATUR Sendiri tetap PRIVAT per akun** — `manualTxns` tidak pernah
+  di-push/pull ke/dari cloud; sumbernya email masing-masing.
+- Perilaku undangan (cloud/guest), status **"Menunggu…"** (cloud saja),
+  dan fallback salin tautan tidak berubah.
+
 ## [1.11.25] - 2026-07-02
 
 ### Diubah
@@ -479,3 +512,4 @@ alter table household_members add column if not exists display_name text;
 [1.11.23]: https://github.com/ameliarby/ATUR
 [1.11.24]: https://github.com/ameliarby/ATUR
 [1.11.25]: https://github.com/ameliarby/ATUR
+[1.11.26]: https://github.com/ameliarby/ATUR
