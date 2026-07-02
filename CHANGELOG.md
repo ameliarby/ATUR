@@ -5,6 +5,112 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.33] - 2026-07-02
+
+### Diperbaiki
+- **Bug: pagu Berdua tidak punya tombol "+ Tambah" & tidak default kosong.**
+  Sebelumnya layar **Anggaran & Alert** mode Berdua memakai katalog tetap 7
+  kategori yang selalu muncul (dengan pagu 0), sementara kartu **Anggaran Bulan
+  Ini** di beranda hanya menampilkan kategori yang punya pagu — sehingga daftar
+  di dua layar terlihat tidak sinkron dan user tak bisa menambah pagu baru.
+
+### Diubah
+- **Pagu rumah tangga (Berdua) kini dikelola user, sama seperti mode Sendiri.**
+  Daftar pagu **default kosong**; user/pasangan menambah lewat tombol
+  **+ Tambah** → memilih kategori rumah tangga (Hunian, Tagihan, Belanja,
+  Keluarga, Anak, Transport, Dana Darurat), mengisi pagu bulanan, dan menentukan
+  penanggung jawab (Kamu / Pasangan / Tidak ada) sekaligus. Tiap kartu bisa
+  diubah pagunya, diganti penanggung jawabnya, atau dihapus.
+- **Kartu beranda "Anggaran Bulan Ini" kini mirror persis dengan layar pagu.**
+  Karena kedua layar memakai daftar pagu aktif yang sama, kategori yang muncul
+  selalu identik. Lencana inisial penanggung jawab tetap tampil (v1.11.32).
+- **Penyimpanan pagu Berdua digabung** ke `atur_hh_budget_caps` dengan format
+  `{key:{cap,pic}}` (kompatibel mundur dengan format lama + `atur_pic`).
+
+## [1.11.32] - 2026-07-02
+
+### Ditambahkan
+- **Penanggung jawab (PIC) opsional pada pagu per kategori — mode Berdua.**
+  Di layar **Anggaran & Alert** (mode Berdua), tiap kartu pagu kategori kini
+  punya pemilih siapa yang bertanggung jawab: **Kamu**, **Pasangan**, atau
+  **Tidak ada** (default). Pilihan disimpan lokal di perangkat
+  (`localStorage.atur_pic`) dan belum disinkronkan ke cloud.
+- **Penanda inisial PIC di kartu "Anggaran Bulan Ini" (beranda).**
+  Kategori yang punya penanggung jawab menampilkan lencana inisial nama
+  (warna sesuai orangnya) di sebelah nama kategori. Bila PIC "Tidak ada",
+  tidak ada lencana yang muncul.
+
+## [1.11.31] - 2026-07-02
+
+### Diubah
+- **Posisi toast "Tautan tersalin" kini di dekat elemen yang diklik.**
+  Sebelumnya (v1.11.30) toast selalu melayang di bagian bawah layar, sehingga
+  jauh dari titik aksi dan kurang disadari user. Kini `showToast()` menerima
+  opsi `anchor` (elemen yang diketuk); toast diposisikan **tepat di atas** kartu
+  "Ajak pasangan gabung" atau tombol "Salin tautan undangan" (otomatis pindah
+  ke bawah anchor bila mepet tepi atas, dan dijaga tetap di dalam viewport).
+  Diterapkan di semua titik salin — kartu ajak-pasangan di beranda (guest &
+  setelah login), layar **Undang Pasangan**, dan **Hubungkan via WhatsApp**.
+  Tanpa `anchor`, toast tetap memakai fallback melayang di bawah layar.
+
+## [1.11.30] - 2026-07-02
+
+### Ditambahkan
+- **Notifikasi "Tautan tersalin" saat membagikan undangan pasangan.**
+  Di bagian **Ajak pasangan gabung**, ketika tautan undangan disalin ke
+  clipboard kini muncul **toast** ringan (muncul dari bawah, hilang otomatis
+  ~2,2 detik) bertuliskan "Tautan undangan tersalin" — supaya user langsung
+  sadar salinan berhasil, tidak hanya perubahan label tombol yang mudah
+  terlewat. Berlaku di **semua titik salin**: kartu ajak-pasangan di beranda
+  (mode guest maupun setelah login) serta layar **Undang Pasangan**
+  (`scrInvite`, tombol "Salin tautan undangan") dan **Hubungkan via WhatsApp**
+  (`scrConnectWA`, tombol "Salin tautan undangan") yang dipakai saat sudah login.
+  Ditambahkan helper `showToast()` generik yang dapat dipakai ulang untuk
+  feedback singkat lain.
+
+## [1.11.29] - 2026-07-02
+
+### Diubah
+- **Layar "Pengeluaran per Kategori" mode Berdua ditata ulang.**
+  Urutan bagian kini: **Total Pengeluaran Rumah → Ringkasan per orang → Per
+  Kategori**. Kartu **"Pengeluaran per orang"** disederhanakan menjadi **dua
+  total nominal saja** (kamu + pasangan) — tab dan daftar transaksi per orang
+  dihapus, karena rincian transaksi sudah tersedia di tiap kartu kategori. Daftar
+  kategori kini menampilkan **semua kartu** (tanpa batas 3 kartu). Tiap kartu
+  kategori tetap menampilkan komposisi user & pasangan (bar + legenda).
+
+### Ditambahkan
+- **Chips filter "Semua / kamu / pasangan" di rincian kategori (khusus Berdua).**
+  Saat mengetuk **Rincian** pada kartu kategori, muncul chips penyaring
+  berdasarkan **penanggung jawab transaksi** (`txnPic`). Chips hanya tampil di
+  mode Berdua; di mode Sendiri tidak ada penyaring. Filter **di-reset setiap
+  kali layar rincian dibuka**. Jika tidak ada transaksi untuk penyaring terpilih,
+  ditampilkan pesan kosong.
+
+## [1.11.28] - 2026-07-02
+
+### Diperbaiki
+- **Sumber / Bank tidak muncul di rincian "Pengeluaran per Kategori" (kedua mode).**
+  Pada layar rincian transaksi per kategori, tiap kartu hanya menampilkan nama,
+  tanggal, dan nominal — informasi **sumber/bank** hilang. Penyebabnya:
+  `txnsForDonutCat()` memetakan tiap transaksi ke tuple 3-elemen
+  `[keterangan, tanggal, nominal]` sehingga `bank`/`source` terbuang, dan
+  `scrKategori()` hanya merender ketiga elemen itu. Kini tuple membawa elemen
+  ke-4 `bank || source`, lalu ditampilkan di samping tanggal — bank e-statement
+  maupun sumber input manual keluar di kartu. Baris rincian per orang di mode
+  Berdua (`scrKategoriBerdua`) juga kini menampilkan nama bank/sumber. Tuple demo
+  lama (3-elemen) tetap aman (elemen ke-4 kosong → tanpa pemisah).
+- **Nominal Berdua membengkak ×1.000.000 di "Pengeluaran per Kategori".**
+  Di mode Berdua, pengeluaran manual `Rp 200.000` tampil menjadi
+  `Rp 200.000.000.000` pada layar pengeluaran per kategori. Penyebabnya:
+  `scrKategoriBerdua()` menurunkan total per kategori dalam **rupiah penuh**
+  (dari `txnIDR()`), tetapi memformatnya dengan `jt()` yang mengharapkan angka
+  dalam **juta** (mengalikan `×1e6`). Kini nilai rupiah penuh diformat dengan
+  `jtfmt()` (mis. `Rp ${jtfmt(total)}`) pada total rumah, ringkasan per orang,
+  dan tiap kartu kategori (5 titik). Layar **Anggaran & Alert** tidak diubah —
+  di sana `jt()` memang menerima angka dalam juta (benar). Data cloud & sync
+  tidak berubah; ini murni perbaikan tampilan.
+
 ## [1.11.27] - 2026-07-02
 
 ### Diperbaiki

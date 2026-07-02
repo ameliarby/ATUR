@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.27">
+<meta name="app-version" content="1.11.33">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -623,7 +623,12 @@
   .pic-opt{border:none;background:transparent;font-family:inherit;font-size:11px;font-weight:800;color:#8A7A70;padding:6px 10px;border-radius:999px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:background .15s ease,color .15s ease;}
   .pic-opt.on.reza{background:#EA6A2E;color:#fff;}
   .pic-opt.on.dini{background:#F4A93C;color:#fff;}
+  .pic-opt.on.none{background:#B9AFA8;color:#fff;}
   .pic-opt{padding:6px 11px;}
+  /* v1.11.32: badge inisial penanggung jawab (PIC) di kartu pagu beranda (Berdua) */
+  .ph-pic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:800;color:#fff;flex:none;margin-left:5px;vertical-align:middle;}
+  .ph-nm-wrap{display:flex;align-items:center;min-width:0;}
+  .ph-nm-wrap .ph-nm{min-width:0;}
   /* approval cards */
   .appr-card{padding:15px 16px;margin-bottom:11px;}
   .appr-top{display:flex;align-items:flex-start;gap:12px;}
@@ -705,6 +710,13 @@
   .invite-dot{width:8px;height:8px;border-radius:50%;background:#F59E0B;}
   .invite-dot.wait{animation:pulse 1.4s infinite;}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  /* v1.11.31: toast ringan non-blocking (feedback "Tautan tersalin", dll) */
+  .app-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);z-index:9999;display:flex;align-items:center;gap:8px;max-width:min(88vw,340px);padding:12px 16px;border-radius:14px;background:#1A1A22;color:#fff;font-family:inherit;font-size:13px;font-weight:700;line-height:1.35;box-shadow:0 10px 30px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .22s ease,transform .22s ease;}
+  .app-toast.show{opacity:1;transform:translate(-50%,0);}
+  /* Mode "anchored": posisi (left/top) diatur via JS di dekat elemen yang diklik. */
+  .app-toast.anchored{left:0;top:0;bottom:auto;transform:translateY(8px);max-width:min(80vw,300px);padding:10px 14px;}
+  .app-toast.anchored.show{transform:translateY(0);}
+  .app-toast svg{width:16px;height:16px;flex:none;stroke:#4ADE80;}
   .invite-share.wa{background:#25D366;margin-bottom:10px;}
   /* ===== WhatsApp connect screen ===== */
   .wa-hero{background:linear-gradient(160deg,#25D366,#128C7E);border-radius:22px;padding:22px 18px;color:#fff;text-align:center;box-shadow:0 14px 30px -12px rgba(18,140,126,.6);margin-bottom:16px;}
@@ -861,6 +873,15 @@
   .kbp-empty{font-size:12px;font-weight:600;color:var(--faint);text-align:center;padding:20px 12px;}
   .kbp-foot{display:flex;align-items:flex-start;gap:7px;font-size:10.5px;font-weight:600;color:var(--faint);margin-top:12px;padding-top:11px;border-top:1px solid var(--line);line-height:1.45;}
   .kbp-foot svg{width:13px;height:13px;flex:none;margin-top:1px;}
+  /* Ringkasan per orang (Berdua): 2 total nominal, tanpa breakdown transaksi */
+  .kbp-ppl{display:flex;gap:10px;}
+  .kbp-ppl-item{flex:1;background:rgba(255,255,255,.7);border-radius:12px;padding:11px 12px;display:flex;flex-direction:column;gap:3px;}
+  .kbp-ppl-nm{font-size:11.5px;font-weight:700;color:var(--muted);}
+  .kbp-ppl-amt{font-size:16px;font-weight:900;}
+  /* Chips filter penanggung jawab di layar detail transaksi per kategori (Berdua) */
+  .catpic-chips{display:flex;gap:7px;margin:10px 0 12px;flex-wrap:wrap;}
+  .catpic-chip{border:1px solid var(--line);background:#fff;font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);padding:6px 13px;border-radius:999px;cursor:pointer;transition:all .15s;}
+  .catpic-chip.on{background:#C2410C;border-color:#C2410C;color:#fff;box-shadow:0 1px 4px rgba(194,65,12,.25);}
   .contrib-row2{display:flex;gap:10px;margin:10px 0;}
   .contrib-row2>div{flex:1;background:rgba(255,255,255,.7);border-radius:12px;padding:10px;text-align:center;}
   .c2-nm{font-size:11px;color:var(--muted);font-weight:600;}
@@ -2044,11 +2065,13 @@ async function sendInviteWA(trigEl){
     // dibuat & listener real-time menunggu pasangan bergabung.
     APP.inviteSent=true; saveApp();
     if(fb) showInviteFeedback(fb, copied ? `${I.check} Tautan tersalin` : 'Salin tautan di bawah:', link, !copied);
+    if(copied) showToast('Tautan undangan tersalin', {anchor: (trigEl&&trigEl.closest('.duo-ask'))||trigEl});
   }else{
     // Guest (pilih "Nanti saja"): tautan lokal, tidak ada sinkronisasi. TANPA
     // status "Menunggu…" (status hanya berlaku untuk cloud) & TANPA buka WhatsApp.
     APP.inviteSent=false; saveApp();
     if(fb) showInviteFeedback(fb, copied ? `${I.check} Tautan tersalin — kamu belum login, tautan ini lokal` : 'Kamu belum login (tautan lokal). Salin manual:', link, !copied);
+    if(copied) showToast('Tautan tersalin (lokal — belum login)', {anchor: (trigEl&&trigEl.closest('.duo-ask'))||trigEl});
   }
   if(typeof refreshDash==='function') refreshDash();
 }
@@ -2166,6 +2189,9 @@ function budgetCardInner(){
   const _isCur  = (focusMonth === _realM);  // bulan yang benar-benar sedang berjalan
   const _daysLeft = _isPast ? 0 : (_isCur ? Math.max(1,_dim-_now.getDate()+1) : _dim);
   const phRows=rows.filter(b=>(b.cap||0)>0);
+  // v1.11.32: badge inisial penanggung jawab (Berdua saja). PIC 'none'/kosong → tanpa badge.
+  const picBadge=b=>{ if(!isB) return ''; const who=b.pic; if(!PIC_VALID.includes(who)) return '';
+    return `<span class="ph-pic" style="background:${picColor[who]||'#B9AFA8'}" title="${who==='dini'?partnerDisplay():myName()}">${picInitial(who)}</span>`; };
   const phStrip=phRows.length? `<div class="ph-strip">${phRows.map(b=>{
       const cap=(b.cap||0)*1e6, sp=(spentOf(b)||0)*1e6;
       const sisa=cap-sp; const isOver=sisa<0;
@@ -2173,7 +2199,7 @@ function budgetCardInner(){
       if(_isPast){
         // Bulan selesai: tampilkan sisa total tanpa pembagian harian.
         return `<div class="ph-card${isOver?' over':''}">
-        <div class="ph-nm">${catLabel(b.nm)}</div>
+        <div class="ph-nm-wrap"><span class="ph-nm">${catLabel(b.nm)}</span>${picBadge(b)}</div>
         <div class="ph-day ${isOver?'over':'ok'}">${isOver?'− ':''}Rp ${jtfmt(Math.abs(sisa))}</div>
         <div class="ph-sub">${isOver?'lewat pagu':'sisa akhir'}</div>
         <div class="ph-track"><div class="ph-fill${isOver?' over':''}" style="width:${usePc}%"></div></div>
@@ -2182,7 +2208,7 @@ function budgetCardInner(){
       }
       const perDay=Math.round(sisa/_daysLeft);
       return `<div class="ph-card${isOver?' over':''}">
-        <div class="ph-nm">${catLabel(b.nm)}</div>
+        <div class="ph-nm-wrap"><span class="ph-nm">${catLabel(b.nm)}</span>${picBadge(b)}</div>
         <div class="ph-day ${isOver?'over':'ok'}">${perDay<0?'− ':''}Rp ${jtfmt(Math.abs(perDay))}</div>
         <div class="ph-sub">${isOver?'lewat pagu':'sisa per hari'}</div>
         <div class="ph-track"><div class="ph-fill${isOver?' over':''}" style="width:${usePc}%"></div></div>
@@ -2403,6 +2429,47 @@ function appDialog({title,msg,okText='OK',cancelText=null,danger=false}){
 }
 function appConfirm(msg,title='Konfirmasi'){ return appDialog({title,msg,okText:'Hapus',cancelText:'Batal',danger:true}); }
 function appAlert(msg,title='Perhatian'){ return appDialog({title,msg,okText:'Mengerti'}); }
+
+// v1.11.31: Toast ringan non-blocking untuk feedback singkat (mis. "Tautan
+// tersalin"). Auto-hilang ~2.2 dtk, tidak menghalangi interaksi. Dipakai di
+// alur "ajak pasangan gabung" (guest & sudah login). Bila opts.anchor diberi
+// (elemen yang diklik), toast muncul TEPAT DI ATAS elemen itu supaya user ngeh
+// di dekat titik aksi; tanpa anchor → fallback melayang di bawah layar.
+let _toastTimer=null;
+function showToast(msg, opts){
+  opts=opts||{};
+  const withCheck = opts.check!==false;
+  const anchor = opts.anchor||null;
+  let el=document.getElementById('appToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='appToast'; el.className='app-toast'; el.setAttribute('role','status'); el.setAttribute('aria-live','polite');
+    document.body.appendChild(el);
+  }
+  el.innerHTML=`${withCheck?I.check:''}<span>${msg}</span>`;
+  if(anchor && anchor.getBoundingClientRect){
+    // Posisikan di atas elemen anchor, terpusat horizontal, dijaga di dalam viewport.
+    el.classList.add('anchored');
+    el.style.visibility='hidden'; el.style.left='0px'; el.style.top='0px';
+    void el.offsetWidth; // ukur dimensi toast dulu
+    const r=anchor.getBoundingClientRect();
+    const tw=el.offsetWidth, th=el.offsetHeight, m=8;
+    let left=r.left + r.width/2 - tw/2;
+    left=Math.max(m, Math.min(left, window.innerWidth - tw - m));
+    let top=r.top - th - 10;                 // default: di atas anchor
+    if(top < m) top=r.bottom + 10;           // kalau mepet atas → taruh di bawah anchor
+    el.style.left=left+'px'; el.style.top=top+'px';
+    el.style.visibility='';
+  }else{
+    el.classList.remove('anchored');
+    el.style.left=''; el.style.top=''; el.style.visibility='';
+  }
+  // paksa reflow supaya animasi masuk konsisten walau toast dipakai beruntun
+  void el.offsetWidth;
+  el.classList.add('show');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>{ el.classList.remove('show'); }, 2200);
+}
 
 /* ===================================================================
  * TURN 24 — Onboarding, Profil edit, Kunci API AI, Reset, Lock Berdua
@@ -2812,6 +2879,7 @@ async function resetSendiri(){
   if(!(await appDialog({title:'Reset data Sendiri?',msg:'Semua transaksi, anggaran, dan aset di mode ATUR Sendiri akan dihapus dari perangkat ini. Data Berdua tidak terpengaruh.',okText:'Reset Sendiri',cancelText:'Batal',danger:true}))) return;
   try{ localStorage.removeItem('atur_manual_txns'); localStorage.removeItem('atur_budget_caps'); }catch(e){}
   manualTxns.length=0; assetsSendiri.length=0;
+  budgets.length=0;
   try{ loadBudgetCaps(); }catch(e){}
   invalidateDerive && invalidateDerive();
   currentMode='s'; swapProjStore('s'); saveApp();
@@ -2825,6 +2893,7 @@ async function resetBerdua(){
   try{ if(APP.householdId) await leaveHousehold(); }catch(e){ berduaConnected=false; }
   try{ localStorage.removeItem('atur_household_txns'); localStorage.removeItem('atur_hh_budget_caps'); localStorage.removeItem('atur_pic'); }catch(e){}
   householdTxns.length=0; assetsBerdua.length=0;
+  householdBudgets.length=0;
   try{ _berduaInitDone=false; }catch(e){} // izinkan sinkronisasi awal lagi bila nanti join ulang
   APP.partner=''; APP.berduaSetup=false; berduaConnected=false;
   try{ loadBudgetCaps(); }catch(e){}
@@ -3079,9 +3148,26 @@ function loadBudgetCaps(){
     });
   }catch(e){}
   // Pagu Berdua (rumah tangga) disimpan TERPISAH agar tidak tercampur dengan Sendiri.
+  // Format baru (v1.11.33): { key: {cap:<juta>, pic:'reza'|'dini'|''} } — daftar pagu
+  // aktif direkonstruksi dari sini (default KOSONG, user menambah lewat "+ Tambah").
+  // Kompatibel mundur: format lama {key:<juta>} + pilihan PIC lama di `atur_pic`.
   try{
+    const oldPic=JSON.parse(localStorage.getItem('atur_pic')||'{}');
     const savedH=JSON.parse(localStorage.getItem('atur_hh_budget_caps')||'{}');
-    householdBudgets.forEach(b=>{ if(typeof savedH[b.key]==='number' && savedH[b.key]>=0) b.cap=savedH[b.key]; });
+    Object.keys(savedH).forEach(key=>{
+      const v=savedH[key];
+      let cap=0, pic='';
+      if(typeof v==='number'){ cap=v; pic = PIC_VALID.includes(oldPic[key]) ? oldPic[key] : ''; }
+      else if(v && typeof v==='object'){
+        cap = (typeof v.cap==='number' && v.cap>=0) ? v.cap : 0;
+        pic = PIC_VALID.includes(v.pic) ? v.pic : '';
+      }
+      if(!(cap>0)) return; // hanya rekonstruksi kartu yang benar-benar punya pagu
+      const m=hhCatMeta(key);
+      let b=householdBudgets.find(x=>x.key===key);
+      if(!b){ b={key, nm:m.nm, c:m.c, ic:m.ic, spent:0, cap:0, pic:''}; householdBudgets.push(b); }
+      b.cap=cap; b.pic=pic;
+    });
   }catch(e){}
 }
 function saveBudgetCaps(){
@@ -3094,7 +3180,7 @@ function saveBudgetCaps(){
 function saveHouseholdCaps(){
   try{
     const map={};
-    householdBudgets.forEach(b=>{ map[b.key]=b.cap; });
+    householdBudgets.forEach(b=>{ map[b.key]={cap:b.cap, pic:PIC_VALID.includes(b.pic)?b.pic:''}; });
     localStorage.setItem('atur_hh_budget_caps',JSON.stringify(map));
   }catch(e){}
 }
@@ -3104,31 +3190,29 @@ function saveHouseholdCaps(){
  * Ini tetap APP TRACKING: `spent` dari transaksi tercatat, `pic` hanya
  * kesepakatan "siapa yang mengelola kategori" (R / D), bukan eksekusi uang. */
 const PIC_VALID=['reza','dini'];
-const householdBudgets = [
-  {key:'hunian',   nm:'Hunian & Cicilan',    c:'#2563EB', ic:'house',  spent:0, cap:0, pic:'reza'},
-  {key:'tagihan',  nm:'Tagihan & Utilitas',  c:'#7C3AED', ic:'bolt',   spent:0, cap:0, pic:'dini'},
-  {key:'belanja',  nm:'Belanja Rumah',       c:'#16A34A', ic:'cart',   spent:0, cap:0, pic:'dini'},
-  {key:'keluarga', nm:'Keluarga & Orang Tua',c:'#0F766E', ic:'family', spent:0, cap:0, pic:'reza'},
-  {key:'anak',     nm:'Pengasuhan & Anak',   c:'#DB2777', ic:'baby',   spent:0, cap:0, pic:'dini'},
-  {key:'transport',nm:'Transport Bersama',   c:'#9A3412', ic:'car',    spent:0, cap:0, pic:'reza'},
-  {key:'darurat',  nm:'Dana Darurat',        c:'#475569', ic:'shield', spent:0, cap:0, pic:'reza'}
+// Katalog kategori rumah tangga yang bisa dipilih user saat menambah pagu Berdua.
+// Ini BUKAN daftar pagu aktif — hanya pilihan template (nama, warna, ikon).
+const HH_CATALOG = [
+  {key:'hunian',   nm:'Hunian & Cicilan',    c:'#2563EB', ic:'house'},
+  {key:'tagihan',  nm:'Tagihan & Utilitas',  c:'#7C3AED', ic:'bolt'},
+  {key:'belanja',  nm:'Belanja Rumah',       c:'#16A34A', ic:'cart'},
+  {key:'keluarga', nm:'Keluarga & Orang Tua',c:'#0F766E', ic:'family'},
+  {key:'anak',     nm:'Pengasuhan & Anak',   c:'#DB2777', ic:'baby'},
+  {key:'transport',nm:'Transport Bersama',   c:'#9A3412', ic:'car'},
+  {key:'darurat',  nm:'Dana Darurat',        c:'#475569', ic:'shield'}
 ];
+function hhCatMeta(key){ return HH_CATALOG.find(x=>x.key===key) || {key, nm:key, c:'#E2E0EC', ic:'dots3'}; }
+// Pagu rumah tangga (Berdua) — DEFAULT KOSONG. User/pasangan menambah lewat "+ Tambah".
+// Tiap item: {key, nm, c, ic, spent, cap (juta), pic ('reza'|'dini'|'')}.
+let householdBudgets = [];
 loadBudgetCaps(); // muat pagu tersimpan untuk Sendiri (budgets) & Berdua (householdBudgets)
-// Muat ulang pilihan PIC yang tersimpan (persist antar sesi)
-(function loadPic(){
-  try{
-    const saved=JSON.parse(localStorage.getItem('atur_pic')||'{}');
-    householdBudgets.forEach(b=>{ if(PIC_VALID.includes(saved[b.key])) b.pic=saved[b.key]; });
-  }catch(e){}
-})();
+// setPic: who = 'reza' | 'dini' | '' (kosong = tidak ada penanggung jawab).
+// v1.11.32: pagu rumah tangga boleh TANPA PIC (null/'').
 function setPic(key,who){
-  if(!PIC_VALID.includes(who)) return;
+  const val = PIC_VALID.includes(who) ? who : '';
   const b=householdBudgets.find(x=>x.key===key); if(!b) return;
-  b.pic=who;
-  try{
-    const saved=JSON.parse(localStorage.getItem('atur_pic')||'{}');
-    saved[key]=who; localStorage.setItem('atur_pic',JSON.stringify(saved));
-  }catch(e){}
+  b.pic=val;
+  saveHouseholdCaps(); // PIC kini ikut tersimpan dalam daftar pagu rumah tangga
 }
 function cyclePic(cur){ const i=PIC_VALID.indexOf(cur); return PIC_VALID[(i+1)%PIC_VALID.length]; }
 // Inisial penanggung jawab: huruf pertama nama user/pasangan (mengikuti input,
@@ -3189,7 +3273,7 @@ let inviteCode = 'ATUR-7K9P-LINK';
  * v1.11.0 — SUPABASE: Auth (Stage 1) + Sync/Share Berdua (Stage 2)
  * =================================================================== */
 const SUPABASE_URL  = 'https://xvbknqdlbcqvzvzltllz.supabase.co';
-const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8Ybeu0Va9hFnqn5UWyPT9iAXI';
+const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8YbeQOu0Va9hFnqn5UWyPT9iAXI';
 let sb = null;
 
 function initSupabase(){
@@ -3876,7 +3960,18 @@ function scrKategori(catName){
     const dl=txnsForDonutCat(catName);
     const amtTxt=(dc && typeof dc.amt==='number' && dc.amt>0)?jtfmt(dc.amt):c.amt;
     const pcV=(dc && dl)?dc.pc:c.pc;
-    const txnList=dl||c.txns;
+    const txnListAll=dl||c.txns;
+    // Chips filter penanggung jawab (Amel/Pasangan) HANYA di mode Berdua.
+    // Filter berbasis elemen pic (tuple[4]) yang berasal dari txnPic(t).
+    const isBerdua = (currentMode==='b');
+    const txnList = (isBerdua && catPicFilter)
+      ? txnListAll.filter(t=>t[4]===catPicFilter)
+      : txnListAll;
+    const chipsHTML = isBerdua ? (()=>{
+      const nameMe=myName(), namePa=partnerDisplay();
+      const chip=(val,label)=>`<button type="button" class="catpic-chip${catPicFilter===val?' on':''}" data-catpic="${val}">${label}</button>`;
+      return `<div class="catpic-chips">${chip('','Semua')}${chip('reza',nameMe)}${chip('dini',namePa)}</div>`;
+    })() : '';
     const d=deriveAll(); const totOut=Object.values(d.byDonut).reduce((a,b)=>a+b,0);
     const totTxt=totOut>0?('Rp '+jtfmt(totOut)):'Rp 0';
     return subBar(catName, `Rp ${amtTxt} · ${pcV}% dari total`)+
@@ -3887,11 +3982,12 @@ function scrKategori(catName){
       </div>
       <div class="sec-card">
         <div class="seclabel">Transaksi — ${txnList.length} item</div>
-        ${txnList.map(t=>`<div class="txn">
+        ${chipsHTML}
+        ${txnList.length? txnList.map(t=>`<div class="txn">
           <div class="txn-ic">${I[catIcon[catName]]||I.dots3}</div>
-          <div style="flex:1"><div class="txn-nm">${t[0]}</div><div class="txn-dt">${t[1]}</div></div>
+          <div style="flex:1"><div class="txn-nm">${t[0]}</div><div class="txn-dt">${t[1]}${t[3]?' · '+t[3]:''}</div></div>
           <div class="txn-amt neg">−${t[2]}</div>
-        </div>`).join('')}
+        </div>`).join('') : `<div class="kbp-empty" style="margin-top:8px">Tidak ada transaksi untuk filter ini.</div>`}
       </div>
     </div>`;
   }
@@ -3930,43 +4026,19 @@ function scrKategoriBerdua(){
     .filter(r=>r.total>0)
     .sort((a,b)=>b.total-a.total);
   const totSpent=rows.reduce((a,r)=>a+r.total,0);
-  const nameMe=myName(), namePa=partnerDisplay();
-  const tab = (kbPicTab==='dini')?'dini':'reza';
-  // Pengeluaran per orang (bulan fokus) langsung dari transaksi tercatat -> sinkron dgn Catatan Arus Kas.
   const meExp = rows.reduce((s,r)=>s+r.reza,0);
   const paExp = rows.reduce((s,r)=>s+r.dini,0);
-  // Kumpulan transaksi per orang (pengeluaran bulan fokus), urut nominal terbesar.
-  const personTxns=(who)=>{
-    return curMonthTxns()
-      .filter(t=>t.dir==='out' && txnPic(t)===who)
-      .map(t=>{ const nd=normDate(t.date); return {
-        id:t.id, title:t.ket||t.sender||'Transaksi', cat:t.cat, sub:t.sub,
-        amtNum:txnIDR(t), dlabel:nd.label, dkey:nd.key, seq:t.seq||0,
-        bank:t.bank, src:(t.origin==='estmt'?'estmt':'manual') };})
-      .sort((a,b)=> (b.dkey-a.dkey) || (b.seq-a.seq) );
-  };
-  const txnRowHTML=(t)=>{
-    const cm=catMeta(catLabel(t.cat));
-    const col=cm && cm.c ? cm.c : '#64748B';
-    return `<div class="kbp-txn tappable" data-edit-txn="${t.id}">
-      <div class="kbp-dot" style="background:${col}"></div>
-      <div class="kbp-main"><div class="kbp-t">${t.title}</div><div class="kbp-s">${catLabel(t.cat)} · ${subLabel(t.sub)} · ${t.dlabel}</div></div>
-      <div class="kbp-amt">−Rp ${(t.amtNum||0).toLocaleString('id-ID')}</div>
-    </div>`;
-  };
-  const list = personTxns(tab);
-  const whoName = tab==='reza'?nameMe:namePa;
-  const whoTot  = tab==='reza'?meExp:paExp;
+  const nameMe=myName(), namePa=partnerDisplay();
+  // Ringkasan per orang: cukup 2 total nominal (tanpa breakdown transaksi).
+  // Rincian transaksi ada di masing-masing kartu "Per Kategori" (ketuk Rincian),
+  // lengkap dengan chips filter Amel/Pasangan di layar detailnya.
   const personSection = `<div class="sec-card">
-      <div class="kbp-toggle">
-        <button type="button" class="kbp-tab${tab==='reza'?' on':''}" data-kbpic="reza">${nameMe}</button>
-        <button type="button" class="kbp-tab${tab==='dini'?' on':''}" data-kbpic="dini">${namePa}</button>
+      <div class="seclabel" style="margin-bottom:8px">Pengeluaran per orang</div>
+      <div class="kbp-ppl">
+        <div class="kbp-ppl-item"><span class="kbp-ppl-nm">${nameMe}</span><b class="neg kbp-ppl-amt">Rp ${jtfmt(meExp)}</b></div>
+        <div class="kbp-ppl-item"><span class="kbp-ppl-nm">${namePa}</span><b class="neg kbp-ppl-amt">Rp ${jtfmt(paExp)}</b></div>
       </div>
-      <div class="kbp-sum"><span>Pengeluaran ${whoName} bulan ini</span><b class="neg">${jt(whoTot)}</b></div>
-      <div class="kbp-list">
-        ${list.length? list.map(txnRowHTML).join('') : `<div class="kbp-empty">Belum ada transaksi ${whoName} bulan ini. Tambah lewat e-Statement atau input manual — otomatis sinkron dengan Catatan Arus Kas.</div>`}
-      </div>
-      <div class="kbp-foot">${I.info} Ketuk transaksi untuk mengubahnya di Catatan Arus Kas. Penanggung jawab tiap transaksi bisa diatur di sana.</div>
+      <div class="kbp-foot">${I.info} Ketuk <b>Rincian</b> pada kartu kategori di bawah untuk melihat transaksinya — bisa disaring per orang.</div>
     </div>`;
   function catCard(r){
     const pc = totSpent>0?Math.round(r.total/totSpent*100):0;
@@ -3975,13 +4047,13 @@ function scrKategoriBerdua(){
     return `<div class="sec-card budg-card hh-card" data-cat="${r.nm}">
       <div class="budg-top">
         <div class="budg-ic" style="background:${r.c}1A;color:${r.c}">${I[catIcon[r.nm]]||I.dots3}</div>
-        <div style="flex:1;min-width:0"><div class="budg-nm">${r.nm}</div><div class="budg-meta">${jt(r.total)} · ${pc}% dari pengeluaran rumah</div></div>
+        <div style="flex:1;min-width:0"><div class="budg-nm">${r.nm}</div><div class="budg-meta">Rp ${jtfmt(r.total)} · ${pc}% dari pengeluaran rumah</div></div>
         <div class="cpc" style="white-space:nowrap;color:var(--muted)">Rincian ${I.chev}</div>
       </div>
       <div class="contrib-bar" style="margin-top:11px"><div class="cb-save" style="width:${mePart}%"></div><div class="cb-exp" style="width:${paPart}%"></div></div>
       <div class="contrib-legend" style="justify-content:flex-start;margin:8px 0 0">
-        <span><i class="lg-save"></i>${nameMe} ${jt(r.reza)}</span>
-        <span><i class="lg-exp"></i>${namePa} ${jt(r.dini)}</span>
+        <span><i class="lg-save"></i>${nameMe} Rp ${jtfmt(r.reza)}</span>
+        <span><i class="lg-exp"></i>${namePa} Rp ${jtfmt(r.dini)}</span>
       </div>
     </div>`;
   }
@@ -3989,7 +4061,7 @@ function scrKategoriBerdua(){
   `<div class="sub-scroll" id="hhScroll">
     <div class="sec-card">
       <div class="seclabel" style="margin-bottom:2px">Pengeluaran rumah</div>
-      <div class="ratio-val neg" style="margin:2px 0 4px">${jt(totSpent)}</div>
+      <div class="ratio-val neg" style="margin:2px 0 4px">Rp ${jtfmt(totSpent)}</div>
       <div style="font-size:11.5px;color:var(--muted);font-weight:600">Total pengeluaran bersama bulan ini · dari e-statement &amp; input manual</div>
     </div>
     ${personSection}
@@ -4383,6 +4455,77 @@ function scrProfile(){
 function scrBudget(){
   const accent=currentMode==='s'?'#2563EB':'#C2410C';
   const mLbl=monthsFull[Math.max(0,Math.min(months.length-1,focusMonth))]||'';
+  const isB=currentMode==='b';
+  // v1.11.32: mode Berdua memakai pagu rumah tangga (householdBudgets) yang
+  // punya penanggung jawab (PIC). Mode Sendiri tetap memakai `budgets`.
+  if(isB){
+    const nameMe=myName(), namePa=partnerDisplay();
+    const rows=householdBudgets;
+    const spentOf=b=>budgetSpent(b.key);
+    const totSpent=rows.reduce((a,b)=>a+(spentOf(b)||0),0);
+    const totCap=rows.reduce((a,b)=>a+(b.cap||0),0);
+    const over=rows.filter(b=>(b.cap||0)>0 && spentOf(b)>b.cap);
+    const picPick=(bi,cur)=>{
+      const on=v=>cur===v?' on':'';
+      return `<div class="pic-row">
+        <span class="pic-lbl">Penanggung jawab</span>
+        <div class="pic-pick" data-hh-picwrap="${bi}">
+          <button type="button" class="pic-opt reza${on('reza')}" data-hh-pic="${bi}" data-pic-val="reza">${nameMe}</button>
+          <button type="button" class="pic-opt dini${on('dini')}" data-hh-pic="${bi}" data-pic-val="dini">${namePa}</button>
+          <button type="button" class="pic-opt none${cur?'':' on'}" data-hh-pic="${bi}" data-pic-val="">Tidak ada</button>
+        </div>
+      </div>`;
+    };
+    return subBar('Anggaran & Alert',`Transaksi ${mLbl} · pagu rumah tangga`)+
+    `<div class="sub-scroll">
+      <div class="sec-card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="sv neg">${jt(totSpent)}</div><div class="sl">Total terpakai</div></div>
+          <div class="stat-box"><div class="sv">${jt(totCap)}</div><div class="sl">Total pagu</div></div>
+        </div>
+        <div class="ratio-track" style="height:10px;margin-top:14px"><div style="width:${totCap>0?Math.min(100,totSpent/totCap*100):0}%;height:100%;background:${accent};border-radius:999px"></div></div>
+      </div>
+      ${over.length?`<div class="alert-card">${I.bell}<div><div class="alert-t">${over.length} kategori melebihi pagu</div><div class="alert-s">${over.map(o=>o.nm).join(' · ')} — kalian akan diberi notifikasi otomatis.</div></div></div>`:''}
+      <div class="sec-head" style="padding:0 4px 4px"><div class="seclabel" style="margin:0">Pagu per Kategori</div><button class="add-btn" data-hh-add style="background:${accent}"><span class="add-btn-ic">${I.plus2}</span>Tambah</button></div>
+      ${rows.length===0?`<div class="sec-card" style="text-align:center;padding:28px 18px;color:var(--muted)">
+        <div style="font-size:30px;line-height:1;margin-bottom:8px">🏠</div>
+        <div style="font-weight:600;color:var(--ink);margin-bottom:4px">Belum ada pagu rumah tangga</div>
+        <div style="font-size:13px;line-height:1.5">Tekan <b>+ Tambah</b> untuk menetapkan pagu bulanan per kategori bersama, lalu tentukan penanggung jawabnya (kamu, pasangan, atau tidak ada).</div>
+      </div>`:''}
+      ${rows.map((b,bi)=>{
+        const spent=spentOf(b);
+        const pc=b.cap>0?Math.min(100,Math.round(spent/b.cap*100)):0;
+        const ratio=b.cap>0?spent/b.cap:0;
+        const state= ratio>1?'over': ratio>=0.85?'warn':'ok';
+        const barc= state==='over'?'#DC2626': state==='warn'?'#F59E0B': b.c;
+        const tag= state==='over'?'Lewat pagu': state==='warn'?'Hampir habis':'Aman';
+        const capRp=Math.round((b.cap||0)*1e6);
+        return `<div class="sec-card budg-card" data-hh-card="${bi}">
+          <div class="budg-top">
+            <div class="budg-ic" style="background:${b.c}1A;color:${b.c}">${I[b.ic]||I.dots3}</div>
+            <div class="budg-mid">
+              <div class="budg-nm">${b.nm}</div>
+              <div class="budg-meta">${jt(spent)} dari <span class="budg-cap-txt">${capRp>0?('Rp '+capRp.toLocaleString('id-ID')):'belum diatur'}</span></div>
+            </div>
+            <div class="budg-tag ${state}">${tag}</div>
+            <button class="budg-edit-btn" data-hh-edit="${bi}" aria-label="Ubah pagu">${I.edit}Ubah</button>
+            <button class="fund-del" data-hh-del="${bi}" aria-label="Hapus">${I.trash}</button>
+          </div>
+          <div class="ratio-track" style="height:8px;margin-top:10px"><div style="width:${pc}%;height:100%;background:${barc};border-radius:999px"></div></div>
+          ${picPick(bi,b.pic)}
+          <div class="budg-editrow" id="hhEdit${bi}" hidden>
+            <label class="budg-edit-lbl">Pagu bulanan</label>
+            <div class="budg-edit-field">
+              <span class="budg-edit-prefix">Rp</span>
+              <input type="text" inputmode="numeric" class="budg-cap-edit" data-hhi="${bi}" value="${capRp>0?capRp.toLocaleString('id-ID'):''}" placeholder="0">
+            </div>
+            <button class="budg-save-btn" data-hh-save="${bi}" style="background:${accent}">Simpan</button>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="src-excel">${I.gear} Atur pagu, penanggung jawab & ambang notifikasi kapan saja</div>
+    </div>`;
+  }
   const totSpent=budgets.reduce((a,b)=>a+sendiriBudgetSpent(b),0);
   const totCap=budgets.reduce((a,b)=>a+b.cap,0);
   const over=budgets.filter(b=>b.cap>0 && sendiriBudgetSpent(b)>b.cap);
@@ -4480,6 +4623,39 @@ function scrBudgetNew(){
     <div class="form-grp"><label class="form-lbl">Pagu bulanan (Rp)</label><input class="form-in" id="b-cap" type="text" inputmode="numeric" placeholder="mis. 2.000.000"></div>
     <button class="form-save" id="b-save" style="background:${accent}">Simpan Anggaran</button>
     <div class="form-note">${I.lock} Pemakaian dihitung otomatis dari transaksi pengeluaran pada kategori yang sama di Arus Kas. Kategori baru yang kamu buat akan otomatis tersinkron ke seluruh aplikasi. Kamu akan dapat notifikasi saat mendekati / melewati pagu.</div>
+  </div>`;
+}
+
+/* 8pre — Berdua: tambah pagu rumah tangga (pilih kategori + pagu + penanggung jawab) */
+function scrBudgetNewHH(){
+  const accent='#C2410C';
+  const nameMe=myName(), namePa=partnerDisplay();
+  // Hanya tampilkan kategori katalog yang BELUM punya kartu pagu (hindari ganda).
+  const used=new Set(householdBudgets.map(b=>b.key));
+  const avail=HH_CATALOG.filter(c=>!used.has(c.key));
+  if(!avail.length){
+    return subBar('Tambah Pagu Bersama','Semua kategori rumah tangga sudah punya pagu')+
+    `<div class="sub-scroll">
+      <div class="sec-card" style="text-align:center;padding:28px 18px;color:var(--muted)">
+        <div style="font-size:30px;line-height:1;margin-bottom:8px">${I.check}</div>
+        <div style="font-weight:600;color:var(--ink);margin-bottom:4px">Semua kategori sudah diatur</div>
+        <div style="font-size:13px;line-height:1.5">Ketujuh kategori rumah tangga sudah punya kartu pagu. Ubah atau hapus lewat layar Anggaran &amp; Alert.</div>
+      </div>
+    </div>`;
+  }
+  const catOpts=avail.map(c=>`<option value="${c.key}">${c.nm}</option>`).join('');
+  const picBtns=`<div class="pic-pick" id="hhnew-pic">
+      <button type="button" class="pic-opt reza" data-pic-val="reza">${nameMe}</button>
+      <button type="button" class="pic-opt dini" data-pic-val="dini">${namePa}</button>
+      <button type="button" class="pic-opt none on" data-pic-val="">Tidak ada</button>
+    </div>`;
+  return subBar('Tambah Pagu Bersama','Tetapkan pagu bulanan per kategori rumah tangga')+
+  `<div class="sub-scroll" id="budgetFormHH">
+    <div class="form-grp"><label class="form-lbl">Kategori rumah tangga</label><select class="form-in" id="bh-cat">${catOpts}</select></div>
+    <div class="form-grp"><label class="form-lbl">Pagu bulanan (Rp)</label><input class="form-in" id="bh-cap" type="text" inputmode="numeric" placeholder="mis. 3.000.000"></div>
+    <div class="form-grp"><label class="form-lbl">Penanggung jawab (opsional)</label>${picBtns}</div>
+    <button class="form-save" id="bh-save" style="background:${accent}">Simpan Pagu</button>
+    <div class="form-note">${I.lock} Pemakaian dihitung otomatis dari transaksi "bersama" pada kategori yang sama. Penanggung jawab hanya penanda kesepakatan siapa yang mengelola — bukan siapa yang membayar.</div>
   </div>`;
 }
 
@@ -5834,14 +6010,16 @@ function budgetDailyBreakdown(b){
   return { days, total, avg, peak, nDays:days.length };
 }
 
-// Daftar transaksi (semua, gabungan sumber) untuk satu kategori donut -> [judul, tgl, "Rp x"].
+// Daftar transaksi (semua, gabungan sumber) untuk satu kategori donut ->
+// [judul, tgl, "Rp x", bank/sumber, pic]. Elemen ke-5 (pic: 'reza'/'dini')
+// dipakai chips filter Amel/Pasangan di layar detail kategori (mode Berdua).
 function txnsForDonutCat(nm){
   const d=deriveAll();
   const totalOut=Object.values(d.byDonut).reduce((a,b)=>a+b,0);
   if(totalOut<=0) return null; // belum ada data -> pakai demo catDetail
   return curMonthTxns()
     .filter(t=>t.dir==='out' && donutCatOf(canonCat(t.cat))===nm)
-    .map(t=>{ const nd=normDate(t.date); return [t.ket||t.sender||'Transaksi', nd.label, 'Rp '+jtfmt(manualParse(t.amt))]; });
+    .map(t=>{ const nd=normDate(t.date); return [t.ket||t.sender||'Transaksi', nd.label, 'Rp '+jtfmt(manualParse(t.amt)), (t.bank||t.source||''), txnPic(t)]; });
 }
 
 function scrAddTxn(saved, embedded){
@@ -5989,7 +6167,7 @@ function renderTop(animateIn){
       else if(act==='estmt') navTo(scrImport('pick'));
     }));
   }
-  sub.querySelectorAll('[data-cat]').forEach(el=>el.addEventListener('click',()=>navTo(scrKategori(el.dataset.cat))));
+  sub.querySelectorAll('[data-cat]').forEach(el=>el.addEventListener('click',()=>{ catPicFilter=''; catDetailName=el.dataset.cat; navTo(scrKategori(el.dataset.cat)); }));
   sub.querySelectorAll('[data-goal]').forEach(el=>el.addEventListener('click',()=>navTo(scrGoal(+el.dataset.goal))));
   // in-subscreen navigation buttons (e.g. "Buat Kantong" -> goalnew)
   sub.querySelectorAll('[data-screen]').forEach(el=>el.addEventListener('click',()=>{
@@ -6475,11 +6653,13 @@ function renderTop(animateIn){
     if(e.target.closest('[data-del-txn]')) return; // jangan buka edit saat klik hapus
     navTo(scrEditTxn(row.dataset.editTxn));
   }));
-  // toggle orang (user/pasangan) di Pengeluaran per Kategori (Berdua)
-  sub.querySelectorAll('[data-kbpic]').forEach(btn=>btn.addEventListener('click',()=>{
-    const who=btn.dataset.kbpic; if(!PIC_VALID.includes(who)) return;
-    kbPicTab=who;
-    screenStack[screenStack.length-1]=scrKategoriBerdua(); renderTop(false);
+  // Chips filter penanggung jawab (Semua/Amel/Pasangan) di layar detail transaksi
+  // per kategori (Berdua). '' = semua. Rebuild layar detail kategori aktif.
+  sub.querySelectorAll('[data-catpic]').forEach(btn=>btn.addEventListener('click',()=>{
+    const who=btn.dataset.catpic; // '' | 'reza' | 'dini'
+    if(who && !PIC_VALID.includes(who)) return;
+    catPicFilter=who;
+    if(catDetailName){ screenStack[screenStack.length-1]=scrKategori(catDetailName); renderTop(false); }
   }));
   // ===== Bulk delete Arus Kas: toggle mode, drag-to-select, pilih semua, hapus =====
   const cfSelToggle=sub.querySelector('#cf-selToggle');
@@ -6771,6 +6951,75 @@ function renderTop(animateIn){
   sub.querySelectorAll('.budg-cap-edit').forEach(inp=>inp.addEventListener('keydown',e=>{
     if(e.key==='Enter'){ e.preventDefault(); saveBudg(+inp.dataset.i); }
   }));
+  // ----- Anggaran Berdua (rumah tangga): edit pagu + pilih penanggung jawab (PIC) -----
+  function toggleHhEdit(bi){
+    const row=sub.querySelector('#hhEdit'+bi); if(!row) return;
+    const card=sub.querySelector('[data-hh-card="'+bi+'"]');
+    const open=row.hidden; row.hidden=!open;
+    if(card) card.classList.toggle('editing',open);
+    if(open){ const inp=row.querySelector('.budg-cap-edit'); if(inp){ inp.focus(); const v=inp.value; inp.value=''; inp.value=v; } }
+  }
+  sub.querySelectorAll('[data-hh-edit]').forEach(btn=>btn.addEventListener('click',(e)=>{
+    e.stopPropagation(); toggleHhEdit(+btn.dataset.hhEdit);
+  }));
+  function saveHhBudg(bi){
+    const inp=sub.querySelector('.budg-cap-edit[data-hhi="'+bi+'"]'); const b=householdBudgets[bi];
+    if(!inp||!b) return;
+    const rp=+inp.value.replace(/[^\d]/g,'')||0;
+    b.cap=rp/1e6; saveHouseholdCaps();
+    screenStack[screenStack.length-1]=scrBudget(); renderTop(false);
+  }
+  sub.querySelectorAll('[data-hh-save]').forEach(btn=>btn.addEventListener('click',(e)=>{
+    e.stopPropagation(); saveHhBudg(+btn.dataset.hhSave);
+  }));
+  sub.querySelectorAll('.budg-cap-edit[data-hhi]').forEach(inp=>inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); saveHhBudg(+inp.dataset.hhi); }
+  }));
+  sub.querySelectorAll('[data-hh-pic]').forEach(btn=>btn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    const bi=+btn.dataset.hhPic; const b=householdBudgets[bi]; if(!b) return;
+    const who=btn.dataset.picVal; // '' | 'reza' | 'dini'
+    setPic(b.key, who);
+    // update tampilan chip tanpa render ulang seluruh layar
+    const wrap=sub.querySelector('[data-hh-picwrap="'+bi+'"]');
+    if(wrap) wrap.querySelectorAll('.pic-opt').forEach(o=>o.classList.toggle('on', o.dataset.picVal===(who||'')));
+    if(typeof refreshDash==='function') refreshDash();
+  }));
+  // Tambah pagu rumah tangga (Berdua) -> buka layar pilih kategori
+  sub.querySelectorAll('[data-hh-add]').forEach(b=>b.addEventListener('click',()=>navTo(scrBudgetNewHH())));
+  // Hapus kartu pagu rumah tangga
+  sub.querySelectorAll('[data-hh-del]').forEach(b=>b.addEventListener('click',async(e)=>{
+    e.stopPropagation(); const i=+b.dataset.hhDel; if(!householdBudgets[i]) return;
+    if(await appConfirm('Hapus pagu "'+householdBudgets[i].nm+'"?')){
+      householdBudgets.splice(i,1); saveHouseholdCaps();
+      screenStack[screenStack.length-1]=scrBudget(); renderTop(false);
+      if(typeof refreshDash==='function') refreshDash();
+    }
+  }));
+  // Form tambah pagu rumah tangga (Berdua): kategori + pagu + penanggung jawab
+  const bFormHH=sub.querySelector('#budgetFormHH');
+  if(bFormHH){
+    attachThousandFmt(bFormHH.querySelector('#bh-cap'));
+    let hhPicVal=''; // default: tidak ada penanggung jawab
+    const picWrap=bFormHH.querySelector('#hhnew-pic');
+    if(picWrap) picWrap.querySelectorAll('.pic-opt').forEach(o=>o.addEventListener('click',()=>{
+      hhPicVal=o.dataset.picVal||'';
+      picWrap.querySelectorAll('.pic-opt').forEach(x=>x.classList.toggle('on', x.dataset.picVal===hhPicVal));
+    }));
+    bFormHH.querySelector('#bh-save').addEventListener('click',()=>{
+      const key=bFormHH.querySelector('#bh-cat').value;
+      const capRp=manualParse(bFormHH.querySelector('#bh-cap').value);
+      if(!key){ appAlert('Pilih kategori dulu.'); return; }
+      if(capRp<=0){ appAlert('Isi pagu yang valid.'); return; }
+      const m=hhCatMeta(key);
+      const exist=householdBudgets.find(b=>b.key===key);
+      if(exist){ exist.cap=capRp/1e6; exist.pic=PIC_VALID.includes(hhPicVal)?hhPicVal:''; }
+      else{ householdBudgets.push({key, nm:m.nm, c:m.c, ic:m.ic, spent:0, cap:capRp/1e6, pic:PIC_VALID.includes(hhPicVal)?hhPicVal:''}); }
+      saveHouseholdCaps();
+      goBack(); screenStack[screenStack.length-1]=scrBudget(); renderTop(false);
+      if(typeof refreshDash==='function') refreshDash();
+    });
+  }
   const bForm=sub.querySelector('#budgetForm');
   if(bForm){
     const bCat=bForm.querySelector('#b-cat');
@@ -6827,6 +7076,7 @@ function renderTop(animateIn){
     }
     try{ await navigator.clipboard.writeText(link); }catch(e){}
     copyBtn.innerHTML=`${I.check} Tautan tersalin`;
+    showToast('Tautan undangan tersalin', {anchor: copyBtn});
   });
   const waBtn=sub.querySelector('#waInvite');
   if(waBtn) waBtn.addEventListener('click',()=>{
@@ -6846,6 +7096,7 @@ function renderTop(animateIn){
       }
       try{ await navigator.clipboard.writeText(link); }catch(e){}
       waCopy.innerHTML=`${I.check} Tautan tersalin`;
+      showToast('Tautan undangan tersalin', {anchor: waCopy});
     });
     const waConnectBtn=sub.querySelector('#waConnectBtn');
     const waPhone=sub.querySelector('#waPhone');
@@ -7364,6 +7615,13 @@ let catatanSelected = new Set();    // id transaksi yang terpilih
 let impSelMode = false;             // mode pilih di Tinjau Hasil AI
 let impSelected = new Set();        // index baris tinjau yang terpilih
 let kbPicTab = 'reza';              // toggle orang aktif di Pengeluaran per Kategori (Berdua): 'reza'=user, 'dini'=pasangan
+// Filter penanggung jawab di layar detail transaksi per kategori (Berdua):
+// '' = semua, 'reza' = user, 'dini' = pasangan. Di-reset tiap kali membuka
+// layar detail kategori agar tidak "nyangkut" dari kunjungan sebelumnya.
+let catPicFilter = '';
+// Nama kategori yang sedang dibuka di layar detail (dipakai chip filter untuk
+// membangun ulang layar yang sama saat filter berubah).
+let catDetailName = '';
 try { manualTxns = JSON.parse(localStorage.getItem('atur_manual_txns')||'[]'); } catch(e){ manualTxns=[]; }
 manualTxns.forEach((t,i)=>{ if(!t.id) t.id='m'+i+'_'+(t.date||'')+(t.time||''); });
 // ATUR Berdua memakai STORE TERPISAH dari ATUR Sendiri. Transaksi yang dicatat
