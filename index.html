@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="app-version" content="1.11.26">
+<meta name="app-version" content="1.11.27">
 <meta name="theme-color" content="#EFEFF6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3189,7 +3189,7 @@ let inviteCode = 'ATUR-7K9P-LINK';
  * v1.11.0 — SUPABASE: Auth (Stage 1) + Sync/Share Berdua (Stage 2)
  * =================================================================== */
 const SUPABASE_URL  = 'https://xvbknqdlbcqvzvzltllz.supabase.co';
-const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8Ybeu0Va9hFnqn5UWyPT9iAXI';
+const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2YmtucWRsYmNxdnp2emx0bGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIxOTgsImV4cCI6MjA5ODQwODE5OH0.Nt_VkO-KxiR13jB-2a8YbeQOu0Va9hFnqn5UWyPT9iAXI';
 let sb = null;
 
 function initSupabase(){
@@ -3352,7 +3352,10 @@ function berduaCloudActive(){
 function _numAmt(t){
   const v=t.amt!=null?t.amt:(t.amount!=null?t.amount:0);
   if(typeof v==='number') return Math.abs(v);
-  return Math.abs(Number(String(v).replace(/[^\d.-]/g,''))||0);
+  // `amt` lokal berupa string locale ID (mis. "200.000") — titik = pemisah
+  // RIBUAN, bukan desimal. Buang SEMUA non-digit (konsisten dgn manualParse),
+  // jangan pakai Number() atas string bertitik (itu bikin "200.000" -> 200).
+  return Math.abs(parseInt(String(v).replace(/[^\d]/g,''),10)||0);
 }
 // Ubah transaksi lokal (mode Berdua) -> baris cloud.
 function txnToCloud(t){

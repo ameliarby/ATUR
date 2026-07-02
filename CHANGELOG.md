@@ -5,6 +5,19 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.11.27] - 2026-07-02
+
+### Diperbaiki
+- **Bug nominal Berdua terpotong saat sync (mis. `200.000` terbaca `200`).**
+  Fungsi `_numAmt()` (dipakai `txnToCloud` untuk mengubah `amt` lokal → angka
+  cloud) sebelumnya memakai `Number()` atas string locale ID yang masih
+  mengandung **titik pemisah ribuan** — sehingga `"200.000"` ditafsirkan
+  sebagai desimal `200`. Kini `_numAmt()` membuang **semua non-digit** (konsisten
+  dengan `manualParse`), karena `amt` selalu bilangan bulat rupiah tanpa desimal:
+  `"200.000"` → `200000`, `"1.250.000"` → `1250000`. Arah sebaliknya
+  (`cloudToTxn`: angka cloud → `toLocaleString('id-ID')`) sudah benar & tidak
+  berubah. Transaksi yang terlanjur salah perlu diedit/dicatat ulang.
+
 ## [1.11.26] - 2026-07-02
 
 ### Ditambahkan
@@ -513,3 +526,4 @@ alter table household_members add column if not exists display_name text;
 [1.11.24]: https://github.com/ameliarby/ATUR
 [1.11.25]: https://github.com/ameliarby/ATUR
 [1.11.26]: https://github.com/ameliarby/ATUR
+[1.11.27]: https://github.com/ameliarby/ATUR
