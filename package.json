@@ -1,6 +1,6 @@
 {
   "name": "atur-app",
-  "version": "1.9.6",
+  "version": "1.12.1",
   "private": true,
   "description": "ATUR — aplikasi pencatatan & pelacakan keuangan (Sendiri & Berdua). Static single-file HTML.",
   "scripts": {
