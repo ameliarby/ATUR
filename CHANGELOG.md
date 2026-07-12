@@ -5,6 +5,97 @@ Semua perubahan penting pada ATUR dicatat di berkas ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.0.0/),
 dan proyek ini memakai [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.12.1] - 2026-07-12
+
+### Ditambahkan
+- **Dropdown "Tujuan aset" di Kekayaan.** Setiap aset kini bisa ditandai
+  tujuannya: **Dana Darurat** (bawaan) atau **Kustom** — nama tujuan yang
+  diketik sendiri oleh pengguna (mis. "Dana Pendidikan", "Dana Pensiun").
+  Tersedia di form **Tambah Aset** dan **Edit Aset** (pilihan "+ Kustom baru…"
+  memunculkan input teks). Nama tujuan kustom **diingat lintas sesi**
+  (`localStorage: atur_asset_purposes`) sehingga bisa dipakai ulang di aset lain.
+- **Sinkron ke seluruh data.** Tujuan tersimpan di objek aset dan tampil sebagai
+  **badge** di baris Detail Aset (badge hijau khusus untuk **Dana Darurat**).
+- **Dana Darurat masuk ke konteks Tanya AI (skor kesehatan).** `taBuildContext`
+  kini menyertakan **total kekayaan, dana darurat, berapa bulan pengeluaran yang
+  ter-cover dana darurat, dan rincian kekayaan per tujuan** — jawaban AI jadi
+  lebih presisi soal ketahanan keuangan.
+- **Export Excel ikut sinkron.** File ekspor kini punya **sheet kedua
+  "Kekayaan"** berisi kolom **Jenis · Nilai (IDR) · Sumber/Catatan · Tujuan ·
+  Bunga %/th**, plus baris **Total Kekayaan** dan **Dana Darurat**.
+
+## [1.12.0] - 2026-07-12
+
+### Ditambahkan
+- **Chat bar "Tanya AI" di bawah toggle Sendiri/Berdua.** Pengganti tombol pil
+  "Tanya AI" di header (pil lama dihapus). Berbentuk bar penuh dengan chip
+  **Tanya AI** + ikon kilau di kiri, **placeholder yang berputar dinamis**
+  (fade tiap ±3,5 detik) melalui empat teks pendek yang dijamin tidak terpotong
+  menjadi "…": **Insight keuangan · Tips biar AI presisi · Aku boros nggak ·
+  Input e-statement**. Rotasi **berhenti saat hover** dan menghormati
+  `prefers-reduced-motion` (teks statik bila animasi dimatikan). Mengetuk bar
+  **membuka pop-up chat Tanya AI** sekaligus **prefill** pertanyaan sesuai teks
+  yang sedang tampil. Warna mengikuti **brand mode** (biru Sendiri / oranye
+  Berdua) via `--accent`.
+
+### Diubah
+- **Tampilan DESKTOP kini kaya-informasi (multi-kolom), bukan sekadar bingkai
+  telepon yang diperbesar.** Pada layar **≥1024px**, kanvas melebar (maks
+  1180px) dan `.scroll` menjadi **CSS Grid 3 kolom** (rail kiri: Proyeksi &
+  Kekayaan · kolom utama: saldo/hero, Kategori, Ledger · rail kanan: Anggaran,
+  Tujuan, tautan pasangan). Header membentang penuh dengan **toggle + chat bar
+  sejajar**. Pada **1024–1279px** otomatis turun ke **2 kolom**; di **≥1280px**
+  penuh 3 kolom. Di **HP (≤600px)** tampilan tetap persis seperti sekarang
+  (mobile web full-bleed). **Markup identik untuk semua ukuran** — hanya tata
+  letak yang berubah lewat CSS, sehingga **semua fitur ter-mirror** dan sinkron
+  antara desktop & HP tanpa menggandakan logic. Pop-up/overlay (Tanya AI, layar
+  detail, sheet export) di desktop dibatasi lebarnya & dipusatkan agar tidak
+  melar memenuhi kanvas.
+
+## [1.11.34] - 2026-07-12
+
+### Ditambahkan
+- **Tanya AI kini berbasis model (LLM), bukan sekadar aturan.** Chat memanggil
+  endpoint serverless baru **`/api/tanya-ai`** (OpenAI, key rahasia di server —
+  tidak pernah dikirim ke browser). Setiap pertanyaan dikirim bersama
+  **ringkasan konteks keuangan** yang dihitung di sisi browser (mode aktif,
+  daftar kategori, jumlah transaksi, total masuk/keluar, savings rate, 3
+  kategori terbesar) sehingga jawaban spesifik ke data pengguna. Bila server
+  belum dikonfigurasi (`OPENAI_API_KEY` kosong) atau gagal, chat otomatis
+  **fallback** ke basis pengetahuan lokal — jadi tetap berfungsi offline/statis.
+- **Pengetahuan produk Tanya AI diperkaya.** Prompt sistem + basis lokal kini
+  menjelaskan detail:
+  - **Kegunaan Anggaran (pagu)** — batas pengeluaran per kategori, fungsi alert,
+    dan cara menambah pagu (termasuk penanggung jawab di mode Berdua).
+  - **Tips agar analisa AI lebih presisi** — mis. menulis kata **"meal"/"makan"**
+    di kolom Catatan agar transaksi terbaca 100% sebagai kategori Makanan; kata
+    kunci lain seperti "grab/gojek" → Transport, "pln/listrik" → Utilities,
+    "apotek/obat" → Medical, "netflix/langganan" → Subscription.
+  - Cara mengambil e-Statement (OVO/GoPay/DANA/BCA/Mandiri/Jago) dan cara
+    export ke Excel.
+- **Tombol "Tanya AI" di header beranda.** Pil putih dengan border gradient
+  animasi + ikon lampu (bohlam) dan label **Tanya AI**. Ketuk untuk membuka
+  layar chat asisten (`scrTanyaAtur`) dengan chip saran pertanyaan.
+- **Ikon Export ke Excel di header.** Ikon unduh (hanya ikon) di samping avatar
+  membuka **bottom-sheet Export**. Dari pop-up ini user bisa:
+  - memilih **rekap** — **Atur Sendiri** atau **Atur Berdua** (default mengikuti
+    mode aktif);
+  - memilih **periode** — **Bulanan** (bulan + tahun) atau **Per tanggal**
+    (rentang tanggal);
+  - melihat **pratinjau nama berkas** + jumlah transaksi terpilih;
+  - menekan **Unduh Excel** untuk mengunduh workbook (SpreadsheetML) berisi
+    rekap transaksi periode terpilih (Tanggal, Waktu, Sumber, Keterangan,
+    Kategori, Sub, Arah, Jumlah + Total Masuk/Keluar/Selisih). Unduhan 100% di
+    sisi klien.
+
+### Diubah
+- **Tampilan desktop kini responsif & adaptif.** Saat dibuka di browser desktop,
+  bingkai aplikasi menyesuaikan **tinggi viewport** (dibatasi ~760–920px)
+  sehingga seluruh layar terlihat tanpa terpotong di laptop pendek; lebar
+  bingkai memakai `clamp()` (≈380–460px) dan latar halaman diberi gradient
+  lembut. Di HP (≤600px) app tetap full-bleed seperti web-app native. Satu build
+  responsif untuk HP maupun desktop.
+
 ## [1.11.33] - 2026-07-02
 
 ### Diperbaiki
